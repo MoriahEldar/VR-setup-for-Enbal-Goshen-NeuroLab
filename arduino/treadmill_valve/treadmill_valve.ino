@@ -29,4 +29,11 @@ void treadmill_control() {
 
 }
 
+void start_signal() {
+
+}
+
+void stop_signal() {
+
+}
 // use Sensor
