@@ -23,21 +23,34 @@ def apply_reward_logic():
     if collision(cont):
         player_path = bge.logic.getCurrentScene().objects['player_path']
         start = bge.logic.getCurrentScene().objects['start']
-        print("At reward station number \t %s \n already passed \t %s rewards" %(str(own['id']), str(start['num_pass'])))
         # check if this station has been reached in the correct order
-        if own['id'] == start['num_pass']:
-            own['prob'] = np.random.binomial(1, own['initProb'])
+        # if own['id'] == start['num_pass']:
+        #     own['prob'] = np.random.binomial(1, own['initProb'])
+        #     start['num_pass'] += 1
+        #     # check if this station should give a reward
+        #     if own['prob'] == 1:
+        #         if own['reward'] != "0.0":
+        #             player_path['serial_obj'].write(b'1') 
+        #             print("reward at station %s was given" %(own['id']))
+        if not player_path['reward_collision'] and own['id'] == start['num_pass'] and player_path['backwards_movment'] > 0:
+            player_path['reward_collision'] = True
             start['num_pass'] += 1
-            # check if this station should give a reward
-            if own['prob'] == 1:
-                if own['reward'] != "0.0":
-                    player_path['serial_obj'].write(b'1') 
-                    print("reward at station %s was given" %(own['id']))
-                    
-                    # Update reward information in the data table:
-                    col = player_path['REWARD_DATA'] 
-                    row = player_path['game_counter'] 
-                    player_path['output_data'][col][row] = 1  
-                
+            position = []
+
+            if start['num_pass'] < len(start['rewards']):
+                position = start['rewards'][0][start['num_pass']]
+                own['id'] = start['num_pass'] 
+            else:
+                # If the round finished, calculate the next round reward
+                # Do the last lap forever
+                if len(start['rewards']) > 1:
+                    start['rewards'].pop(0)
+                position = start['rewards'][0][0]
+                own['id'] = 0
+
+            position.append(0)
+            own.worldPosition = position
+            #! does it work? the changing position thing?
+            # TODO give a reward (send signal to the java program)
 
 apply_reward_logic()             

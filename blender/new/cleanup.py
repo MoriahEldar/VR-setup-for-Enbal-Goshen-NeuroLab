@@ -1,1 +1,1 @@
-# close the connection with the JAVA program
+# close the connection with the JAVA program (close socket)

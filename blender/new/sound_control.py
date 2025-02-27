@@ -2,6 +2,7 @@ import bge
 # this script is linked to sound objects for 1 < i < 15
 # I (Ido) changed it to work with the air puffs instead, but
 # haven't renamed it. You're welcome to do so!
+#! Moriah: not in use with no air puffs
 
 def collision(cont):
     # Loops through all connected sensors and returns if one is False
