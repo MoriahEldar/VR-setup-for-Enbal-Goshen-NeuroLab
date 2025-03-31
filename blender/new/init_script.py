@@ -53,6 +53,7 @@ def init_java_socket():
     server_socket.listen(1) # TODO check if to add more
     client_socket, addr = server_socket.accept() # works? knows how to wait?
     player_path['java_socket_obj'] = client_socket
+    player_path['server_socket_obj'] = server_socket
     
     player_path['game_on'] = False
     player_path['game_counter']=0 # counts game loops (updated in movement logic) 

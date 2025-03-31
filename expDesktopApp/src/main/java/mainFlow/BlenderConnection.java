@@ -39,7 +39,7 @@ public class BlenderConnection {
         }
     }
 
-    public BlenderConnection(int radius) {
+    public BlenderConnection(float radius) {
         this.radius = radius;
     }
 
