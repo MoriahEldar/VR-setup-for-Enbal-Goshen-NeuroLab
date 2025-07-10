@@ -27,8 +27,8 @@ public class RewardStationDef implements Serializable {
     // for the sake of changing the rewards. From -1 - REWARDS_SPOTS_OPTIONS, where -1 is random, 0 is in the middle.
     private int placeInZone;
 
-    public RewardStationDef(int numInLap, int numLaps, int probability, int placeInZone) {
-        this.numInLap = numInLap;
+    public RewardStationDef(int numRewardsInTheLap, int numLaps, float probability, int placeInZone) {
+        this.numInLap = numRewardsInTheLap;
         this.numLaps = numLaps;
         this.probability = probability;
         this.placeInZone = placeInZone;

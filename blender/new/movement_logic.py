@@ -1,7 +1,9 @@
 import json
+import math
+import socket
 import bge 
-import serial
 import time
+import select
 
 #! check this file!!!
 # This script is linked to the player_path object
@@ -20,54 +22,67 @@ player_path = bge.logic.getCurrentScene().objects['player_path']
 # player_path['output_data'][col][row] = player_path['last_position']
 # player_path['output_data'][col][row] = player_path['last_position']
 
+def is_good_number(s):
+    try:
+        num = int(s)
+        if num == 0:
+            return False
+        return True
+    except ValueError:
+        return False
 
 def apply_movement(): 
   # This function reads the encoder-arduino information and move
   # the player in the game according to it:
   
-  java_code_read = player_path['java_socket_obj'].recv(1024).decode("utf-8") # This is a reads from the java program
-  # should be -1/1
-  if java_code_read and java_code_read in ['1', '-1']:
-    # new_position = get_read_number(encoder_read)
-    new_position = int(java_code_read)
-    # If the encoder rotates, move the player: 
-    # if abs(new_position - player_path['last_position'])<1000:  # This condition prevents errors when the new position is very far from the last position
-    move_player(new_position)
+  sock = player_path['java_socket_obj']
+  ready_to_read, _, _ = select.select([sock], [], [], 0)
+  java_code_read = None
 
-    # Update the 'backwards movment' value if necessary 
-    # (counts the backwards movments of the mouse in order to keep him from getting things if he went backwards for them)
-    if player_path['backwards_movment'] > 0:
-      if new_position < 0:
-        player_path['backwards_movment'] = new_position
-    elif player_path['backwards_movment'] <= 0:
-      player_path['backwards_movment'] += new_position
-      # on a positive count (the count doesn't matter, just that it's positive)
-      if player_path['backwards_movment'] > 0:
-        player_path['backwards_movment'] = 1
+  if ready_to_read:
+    try:
+        data = sock.recv(1024)
+        if not data:
+            print("Connection closed by Java.")
+            java_code_read = None
+        else:
+            java_code_read = data.decode("utf-8")
+    except socket.timeout:
+        java_code_read = None
+    except (ConnectionResetError, OSError) as e:
+        print("Socket error:", e)
+        java_code_read = None
 
-    sendDataToJava(new_position) # will do it on time? check after
+  if java_code_read:
+    split_code_read = java_code_read.split("\n")
+    for code in split_code_read:
+        #? maybe to sum all numbers?
+        if is_good_number(code):
+          # delta is the movment progress
+          delta = int(code)
+          # If the encoder rotates, move the player:
+          move_player(delta)
 
+          # Update the 'backwards movment' value if necessary 
+          # (counts the backwards movments of the mouse in order to keep him from getting things if he went backwards for them)
+          if player_path['backwards_movment'] > 0:
+            if delta < 0:
+              player_path['backwards_movment'] = delta
+          elif player_path['backwards_movment'] <= 0:
+            player_path['backwards_movment'] += delta
+            # on a positive count (the count doesn't matter, just that it's positive)
+            if player_path['backwards_movment'] > 0:
+              player_path['backwards_movment'] = 1
 
-# def get_read_number(read):
-#   # This function gets the read from the encoder-arduino 
-#   # as a binary type that looks like: b'-7773\r\n'
-#   # It turns it into a string and takes the numbers (and the minus if exists), and returns it as a number:
-#   number = str(read)[2:-5]
-#   number = int(number)
-#   if player_path['encoder_calib'] == 0:  # In the begining of the game set the 'encoder_calib' value as the first read of the encoder
-#       player_path['encoder_calib'] = number
-#   return number - player_path['encoder_calib']
-
+          sendDataToJava(delta) # will do it on time? check after
   
-def move_player(new_position):
-  # This function gets the new position and moves the player in the game:
-  
-  #delta = player_path['last_position'] - new_position
-  delta = new_position #? check if makes sense 
+def move_player(delta):
+  # This function gets the deltea move and moves the player in the game:
   # Find out the current coordinates:
   [_,_,current_z] = player_path.worldOrientation.to_euler()
   # Change the z coordinate:
-  player_path.worldOrientation = [0,0,current_z+SENSITIVITY_PARAMETER *delta]
+  #! Notice: the z coordinate is the oppesite way, - is forward and + is backwards!! That's why i multiply by -1, to sync it
+  player_path.worldOrientation = [0,0,current_z + SENSITIVITY_PARAMETER*delta*-1]
 
 
 def sendDataToJava(new_position):
@@ -82,12 +97,20 @@ def sendDataToJava(new_position):
   data_to_send = {
         "laps": player_path['laps_counter'],
         "reward": player_path['reward_collision'],
-        "location": player_path.worldOrientation
+        "location": calculateLocationRightWay()
     }
   json_data = json.dumps(data_to_send)
   player_path['reward_collision'] = False
-  player_path['java_socket_obj'].send(json_data.encode("utf-8"))
-  return
+  player_path['java_socket_obj'].send((json_data + '\n').encode('utf-8'))
 
-if player_path['game_on']:
+def calculateLocationRightWay():
+   # Z is the oppesite way, so it's no trivial
+  radsLocation = player_path.worldOrientation.to_euler().z * -1
+  degLocation = math.degrees(radsLocation) % 360
+  if degLocation < 0:
+    degLocation += 360
+  return degLocation
+
+
+if player_path['sockets_configed']:
     apply_movement()

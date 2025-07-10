@@ -230,7 +230,7 @@ def useMouseLook(controller, capped, move, invert, sensitivity, obj):
     if abs(move[1]) < 0.6:
         disM = 0
     
-    leftRight = -disM/obj['calib_val'] * 360#(disM / 220) * 360
+    leftRight = -disM/6886.666667 * 360#(disM / 220) * 360 #TODO check value and change to constant and configs!!!
     
     
         

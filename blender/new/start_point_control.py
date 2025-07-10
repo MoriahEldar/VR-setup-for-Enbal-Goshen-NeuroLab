@@ -7,10 +7,13 @@ import numpy as np
 # reward sequences set beforehand by the user
 # I put all the air station code in comments, because it is not used in the current version of the experiment
 # If you want to use it, probbably a lot of changes well be needed.
+player_path = bge.logic.getCurrentScene().objects['player_path']
 
-def collision(cont):
+def collision(cont): # TODO change collision function to consider backwards
     # Loops through all connected sensors and returns if one is False
     # Basically makes it work like an And conroller.
+    if player_path['backwards_movment'] <= 0: # collision only if the player is moving forward
+        return False
     for sens in cont.sensors:
         if not sens.positive:
             return False
@@ -19,8 +22,7 @@ def collision(cont):
 
 def apply_start_logic():
     outer_wall = bge.logic.getCurrentScene().objects['outer_wall']
-    obj = bge.logic.getCurrentScene().objects['player_path']
-    if not obj['running']:
+    if not player_path['running']:
         return
     cont = bge.logic.getCurrentController()
     own = cont.owner
@@ -31,14 +33,15 @@ def apply_start_logic():
         
         # set rewards defenitions
         own['num_pass'] = 0
-        #! what happens if there is no rewards?
-        own['num_rewards'] = len(own['rewards'][0])
+        own['num_rewards'] = 0 if len(own['rewards']) == 0 else len(own['rewards'][0])
         
         # set first reward position
-        position = own['rewards'][0][0]
-        position.append(0)
-        station = bge.logic.getCurrentScene().objects["rewardST"]
-        station.worldPosition = position
+        if len(own['rewards']) > 0:
+            position = own['rewards'][0][0]
+            position.append(0)
+            station = bge.logic.getCurrentScene().objects["rewardST"]
+            station.worldPosition = position
+            station['id'] = 1
 
         # if not outer_wall['rand_air']:
         #     set_new_air_stations(own)
@@ -46,15 +49,14 @@ def apply_start_logic():
         
     # when the player has collided with the start object
     if collision(cont):
-        player_path = bge.logic.getCurrentScene().objects['player_path'] 
         # if it passed all the rewards and straight
-        if own['num_pass'] >= own['num_rewards'] and player_path['backwards_movment'] > 0:
+        if own['num_pass'] >= own['num_rewards']:
             # passed a lap
             player_path['laps_counter'] += 1
             
             # lap reward initilaization
             own['num_pass'] = 0
-            own['num_rewards'] = len(own['rewards'][0])
+            own['num_rewards'] = 0 if len(own['rewards']) == 0 else len(own['rewards'][0])
 
         # if not outer_wall['rand_air']:
         #  if own['air_pass'] >= own['num_air']:

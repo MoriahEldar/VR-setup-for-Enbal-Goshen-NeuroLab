@@ -2,12 +2,12 @@
 
 // DATA
 const int PORT = 9600;
-const int rwrdPin = 4;
-const int TTLIn = A5;
+const int rwrdPin = 7; // yes?
+const int TTLIn = 8;
 const int DRINKING_TIME = 10;
 const int TTL = 0;
 
-enum Signals { START, REWARD }
+enum Signals { START, REWARD };
 
 // Change these two numbers to the pins connected to your encoder.
 //   Best Performance: both pins have interrupt capability
@@ -19,6 +19,7 @@ long oldPosition = 0; // restart when number is to long
 int rwrdsNeedToOpen = 0;
 unsigned long rwrdStartTimer = 0;
 bool rewardIsOpened = false;
+bool ttlPulse = false;
 
 void setup() {
   // put your setup code here, to run once:
@@ -26,7 +27,8 @@ void setup() {
   pinMode(rwrdPin, OUTPUT);
   pinMode(rwrdPin, OUTPUT);
   pinMode(TTLIn, INPUT);
-  start();
+  myEnc.write(0);
+  oldPosition = 0;
 }
 
 void loop() {
@@ -40,7 +42,8 @@ void loop() {
 void encoder_handler() {
   long newPosition = myEnc.read();
   if (newPosition != oldPosition) {
-    Serial.println(newPosition - oldPostion); // check
+    Serial.print(newPosition - oldPosition);
+    Serial.print('\n');
     oldPosition = newPosition;
   }
 }
@@ -48,26 +51,26 @@ void encoder_handler() {
 void rwrd_pin_handler() {
   if (!rewardIsOpened && rwrdsNeedToOpen > 0) {
     digitalWrite(rwrdPin, HIGH);
-    rwrdStartTimer = currentTime;
+    rwrdStartTimer = millis();
     rwrdsNeedToOpen--;
+    rewardIsOpened = true;
   }
   if (rewardIsOpened && (millis() - rwrdStartTimer >= DRINKING_TIME)) {
     digitalWrite(rwrdPin, LOW);
+    rewardIsOpened = false;
   }
 }
 
 void Ttl_handler() {
   int ttlValue = digitalRead(TTLIn);
-  if (ttlValue == HIGH) {
-    Serial.println(TTL);
-    // check if i need to change digital read value
+  if (!ttlPulse && ttlValue == HIGH) {
+    Serial.print(TTL);
+    Serial.print('\n');
+    ttlPulse = true;
   }
-}
-
-void start() {
-  myEnc.write(0);
-  oldPosition = 0;
-  Serial.println("start");
+  else if (ttlPulse && ttlValue == LOW) {
+    ttlPulse = false;
+  }
 }
 
 void signal_handler() {
@@ -75,9 +78,6 @@ void signal_handler() {
   {
     int command = Serial.read();
     switch (command) {
-      case START:
-        start();
-        break;
       case REWARD:
         rwrdsNeedToOpen++;
         break;

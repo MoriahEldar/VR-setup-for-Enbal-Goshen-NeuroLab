@@ -1,5 +1,4 @@
 import json
-import serial
 import bge 
 import socket
 import sys
@@ -10,16 +9,19 @@ import random
 # in charge of reading the configuration file and extracting all relevant information from it
 # ?shold it be change to be manual called?
 
-PORT = 0
+PORT = 65432
 cont = bge.logic.getCurrentController()
 own = cont.owner
+player_path = bge.logic.getCurrentScene().objects['player_path']
 
+SENSITIVITY_PARAMETER = 0.00097
 
 def init():
     # makes sure this happens once
-    if own['configed']:
+    if player_path['running']:
         return
-    own['configed'] = True
+    player_path['running'] = True
+    player_path['laps_counter'] = 1
 
     # call for build functions
     init_rewards()
@@ -37,8 +39,9 @@ def init_rewards():
     start_obj['rewards'] = []
     if '--' in args:
         params_index = args.index('--') + 1
-        start_params = args[params_index:]
+        start_params = ''.join(args[params_index:])
         if len(start_params) >= 1:
+            print("rewardList is:", start_params, "type:", type(start_params))
             start_obj['rewards'] = json.loads(start_params)
     
     
@@ -47,20 +50,17 @@ def init_java_socket():
     opens a socket to the java program
     """
     # open serial Arduino communication
-    player_path = bge.logic.getCurrentScene().objects['player_path']
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind(('localhost', PORT)) # TODO change to the right port
     server_socket.listen(1) # TODO check if to add more
+    print("trying to connect to java program")
     client_socket, addr = server_socket.accept() # works? knows how to wait?
+    print("connected to java program")
     player_path['java_socket_obj'] = client_socket
     player_path['server_socket_obj'] = server_socket
     
-    player_path['game_on'] = False
-    player_path['game_counter']=0 # counts game loops (updated in movement logic) 
-    player_path['last_position']=0 # used in movement logic script to moove the player
-    player_path['encoder_calib']=0 # used to set the first value readen from the encoder (movement logic)
-    player_path['IR']=False # used to detect laps starts (in calib script)
-    
+    player_path['sockets_configed'] = True
+
 
 
 init()

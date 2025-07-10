@@ -10,21 +10,25 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Properties;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import classes.RewardStationDef;
 import consts.Defs;
 
 public class BlenderConnection {
-    private float radius;
+    private float radius; //! raduis is or default or set with the maze. it is nonsece it's not together
     private Socket socket;
-    private boolean onReward = false;
-    private int lapNumber = 1;
-    private String mazeLocation = "";
+    private DataOutputStream out = null;
+    private ExperimentFlow exp = null;
+    private boolean isConnected = false;
 
     private static Properties properties = new Properties();
 
@@ -39,36 +43,102 @@ public class BlenderConnection {
         }
     }
 
-    public BlenderConnection(float radius) {
+    public BlenderConnection(ExperimentFlow exp, float radius) {
+        this.exp = exp;
         this.radius = radius;
     }
 
-    public void loadMaze(File maze, ArrayList<RewardStationDef> rewards) {
+    private void loadMaze(File maze, String rewardList) {
         try {
-            // Start Blender game with parameters
-            String rewardList = calculateRewardList(rewards).toString();
-            ProcessBuilder processBuilder = new ProcessBuilder(
-                Defs.BLENDER_PATH,
-                "-p", "0", "0", "1280", "720", // Set window position and size
-                "-g", "noaudio", "1",          // Disable audio
-                "-g", "show_framerate", "1",   // Show framerate
-                "-g", "show_profile", "1",     // Show performance stats
-                "-g", "fixedtime", "1",        // Ensure stable physics
-                maze.getPath(),                // Load the game
-                "--",                          // Separator for custom arguments
-                rewardList                     // Rewards
+            System.out.println("rewardList: " + rewardList.replace("\"", "\\\""));
+            // Create ProcessBuilder with command
+            ProcessBuilder pb = new ProcessBuilder(
+                maze.getAbsolutePath(),  // Path to the Blender executable
+                "--",  // Optional arguments
+                rewardList.replace("\"", "\\\"")
             );
-            processBuilder.start();
+            
+            // Redirect output to console
+            pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+            pb.redirectError(ProcessBuilder.Redirect.INHERIT);
 
-            // Wait for Blender server to be ready
-            Thread.sleep(5000);  // TODO Adjust the sleep time as needed
-
-            // Connect to Blender server
-            this.socket = new Socket(Defs.BLENDER_IP, Defs.BLENDER_PORT);
-
+            // Start the process
+            Process process = pb.start();
+            
+            // Wait for completion
+            int exitCode = process.waitFor();
+            
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    public void startGame(File maze, ArrayList<RewardStationDef> rewards) {
+        // connect the blender socket
+
+        // Start Blender game with parameters
+        String rewardList = calculateRewardList(rewards).toString();
+        new Thread(() -> this.loadMaze(maze, rewardList)).start();
+        new Thread(() -> this.configureSocket()).start();
+        //! check if arduino is in a thread (should be)
+        //! check not to stop the program
+
+    }
+
+    /**
+     * Configure the socket connection to the blender
+     */
+    private void configureSocket() {
+        while (true) {
+            try {
+                this.socket = new Socket(Defs.BLENDER_IP, Defs.BLENDER_PORT);
+                isConnected = true;
+                System.out.println("Connected!");
+                break;
+            } catch (IOException e) {
+                System.out.println("still trying");
+                try {
+                    Thread.sleep(1000); // wait 1 second before retrying
+                } catch (InterruptedException ignored) {}
+            }
+        }
+
+        // configure out socket
+        //! TODO what to do if an error accurs here? still safe to do input? close connection?
+        try {
+            this.out = new DataOutputStream(this.socket.getOutputStream());
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        // configure constantly listening to data
+        new Thread(() -> {
+            try (
+                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))
+            ) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    try {
+                        JSONObject receivedJson = new JSONObject(line.trim());
+                        int lapNumber = receivedJson.getInt(properties.getProperty("recieve.data.laps.name"));
+                        boolean onReward = receivedJson.getBoolean(properties.getProperty("recieve.data.reward.name"));
+                        String mazeLocation = receivedJson.get(properties.getProperty("recieve.data.location.name")).toString();
+                        
+                        exp.updateMazeArgs(lapNumber, onReward, mazeLocation);
+                    } catch (Exception e) {
+                        System.err.println("Failed to parse JSON: " + line);
+                    }
+                }
+
+                // If we reach here, the connection was closed by Blender
+                System.out.println("Connection closed by Blender.");
+                exp.finishRun(); // finish the run and close all connections
+            } catch (IOException e) {
+                System.err.println("Blender socket closed or errored: " + e.getMessage());
+                exp.finishRun();
+            }
+        }).start();
     }
 
     /**
@@ -77,33 +147,24 @@ public class BlenderConnection {
      */
     public void move(int movement) {
         // send to blender the movment that should have
-        if(movement != 0) {
-            try (
-                    DataOutputStream out = new DataOutputStream(this.socket.getOutputStream());
-                    DataInputStream in = new DataInputStream(socket.getInputStream());
-                ) {
-                    out.writeUTF(String.valueOf(movement)); // Send message to server
-                    // TODO need to wait?
-                    String response = in.readUTF(); // Read response from server
-                    JSONObject receivedJson = new JSONObject(response);
-                    this.lapNumber = receivedJson.getInt(properties.getProperty("recieve.data.laps.name"));
-                    this.onReward = receivedJson.getBoolean(properties.getProperty("recieve.data.reward.name"));
-                    this.mazeLocation = receivedJson.get(properties.getProperty("recieve.data.location.name")).toString();
-                }
+        if(movement != 0 && out != null) {
+            try {
+                out.write(String.valueOf(movement + "\n").getBytes(StandardCharsets.UTF_8)); // Send message to servers
+            }
             catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public LinkedList<LinkedList<Double[]>> calculateRewardList(ArrayList<RewardStationDef> rewardsDefs) {
+    public JSONArray calculateRewardList(ArrayList<RewardStationDef> rewardsDefs) {
         // calculate the rewards list
-        LinkedList<LinkedList<Double[]>> rewardsLists = new LinkedList<>();
+        JSONArray rewardsLists = new JSONArray();
         for (RewardStationDef rewardDef : rewardsDefs) {
             double blendMazeCircumference = Math.PI * 2;
             for (int i = 0; i < rewardDef.getNumLaps(); i++) { // TODO short this when prob = 1 and not random
                 // divide the maze into equal sections for the rewards to be in
-                LinkedList<Double[]> rewards = new LinkedList<>();
+                JSONArray rewards = new JSONArray();
                 double sectionLength = blendMazeCircumference / rewardDef.getNumInLap();
                 for (int j = 0; j < rewardDef.getNumInLap(); j++) {
                     if (Math.random() < rewardDef.getProbability()) {
@@ -124,26 +185,34 @@ public class BlenderConnection {
                         }
 
                         // calculate the reward position in the maze
-                        double x = Math.cos(rewardPosition) * this.radius;
-                        double y = Math.sin(rewardPosition) * this.radius;
+                        //? maze is oppisite. Should I move this code to the maze?
+                        double x = Math.cos(-rewardPosition) * this.radius;
+                        double y = Math.sin(-rewardPosition) * this.radius;
 
                         // add the reward to the list of rewards for this lap
-                        rewards.add(new Double[] { x, y });
+                        rewards.put(new JSONArray(new Double[] { x, y }));
                     }
                 }
                 // add the list of rewards for this lap to the list of rewards for all laps
-                rewardsLists.add(rewards);
+                rewardsLists.put(rewards);
             }
         }
         return rewardsLists;
     }
 
-    public void close() {
-        // TODO how to get a closing notion?
+    public void closeSocketConnection() {
         try {
-            this.socket.close();
+            if(this.socket != null) {
+                this.socket.close();
+            }
+            this.out = null;
+            this.isConnected = false;
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public boolean isConnected() {
+        return isConnected;
     }
 }
