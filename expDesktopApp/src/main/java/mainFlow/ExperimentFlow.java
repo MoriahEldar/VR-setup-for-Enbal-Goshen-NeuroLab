@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import classes.RewardStationDef;
 import consts.Defs;
 
-public class ExperimentFlow { // static class for eperiment and shit
+public class ExperimentFlow {
     private BlenderConnection blender;
     private ArduinoConnection arduino;
     private FileSystem fileSystem;
@@ -17,12 +17,12 @@ public class ExperimentFlow { // static class for eperiment and shit
     private String mazeLocation = "0";
     private int ttlNumber = 0;
     private long lastUpdateTime = 0;
-    private long onRewardTimer = 0;
     
     public ExperimentFlow(float radius, String dir) {
         this.blender = new BlenderConnection(this, radius);
         this.arduino = new ArduinoConnection(this);
         this.fileSystem = new FileSystem(this, dir);
+        this.fileSystem.makeOutputData();
     }
 
     static void uploadEnv() {
@@ -55,7 +55,6 @@ public class ExperimentFlow { // static class for eperiment and shit
             triggerGotToReward();
             this.sentOnReward += 1;
             this.onReward = true;
-            onRewardTimer = System.currentTimeMillis(); // reset the timer
         }
 
         long currentTime = System.currentTimeMillis();
@@ -77,7 +76,7 @@ public class ExperimentFlow { // static class for eperiment and shit
     public void handleArduinoNumber(int number) {
         if (number == 0) {
             this.ttlNumber += 1;
-            fileSystem.updateFileOnTtl(Integer.toString(this.ttlNumber)); // TODO check ttl data and file!!
+            fileSystem.updateFileOnTtl(Integer.toString(this.ttlNumber));
         }
         else {
             blender.move(number);
@@ -88,27 +87,19 @@ public class ExperimentFlow { // static class for eperiment and shit
         try {
             arduino.disconnectArduino();
             blender.closeSocketConnection();
-            fileSystem.stop();
-            fileSystem.syncFiles();
+            fileSystem.stopLogging();
+            fileSystem.makeOutputData();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public boolean isOnReward() {
+    public boolean fileSystemIsOnReward() {
         if (onReward) {
-            long currentTime = System.currentTimeMillis();
-            if (currentTime - onRewardTimer > Defs.REWARD_SIGNAL_TIME) { // check if the reward signal is still valid
-                onReward = false; // reset the reward signal after the time has passed
+            sentOnReward -= 1;    
+            if (sentOnReward == 0) {
+                onReward = false;
             }
-            else {
-                sentOnReward -= 1; //! not good. I have a sync problem
-                return true; // still on reward
-            }
-        }
-
-        if (sentOnReward > 0) {
-            sentOnReward -= 1;
             return true;
         }
 
@@ -121,5 +112,13 @@ public class ExperimentFlow { // static class for eperiment and shit
 
     public String getMazeLocation() {
         return this.mazeLocation;
+    }
+
+    public float getRadius() {
+        return this.blender.getRadius();
+    }
+
+    public boolean isTtlOn() {
+        return this.ttlNumber > 0;
     }
 }

@@ -1,20 +1,14 @@
 package mainFlow;
 
 import java.io.BufferedReader;
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Properties;
 
 import org.json.JSONArray;
@@ -50,7 +44,6 @@ public class BlenderConnection {
 
     private void loadMaze(File maze, String rewardList) {
         try {
-            System.out.println("rewardList: " + rewardList.replace("\"", "\\\""));
             // Create ProcessBuilder with command
             ProcessBuilder pb = new ProcessBuilder(
                 maze.getAbsolutePath(),  // Path to the Blender executable
@@ -148,6 +141,8 @@ public class BlenderConnection {
     public void move(int movement) {
         // send to blender the movment that should have
         if(movement != 0 && out != null) {
+            System.out.println("movement: " + movement);
+            movement = movement * -1; //! TODO check!!!
             try {
                 out.write(String.valueOf(movement + "\n").getBytes(StandardCharsets.UTF_8)); // Send message to servers
             }
@@ -214,5 +209,9 @@ public class BlenderConnection {
 
     public boolean isConnected() {
         return isConnected;
+    }
+
+    public float getRadius() {
+        return this.radius; // return the radius as an int
     }
 }

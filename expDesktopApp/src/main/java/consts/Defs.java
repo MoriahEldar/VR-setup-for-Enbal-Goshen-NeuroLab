@@ -9,8 +9,18 @@ public class Defs {
     public static int MAX_LAPS_NUMBER = 1000;
 
     public static String BEHAVIORAL_FILE_NAME = "behavioralData.csv";
-    public static String TTL_FILE_NAME = "the2photonData.csv";
     public static String SYNC_FILE_NAME = "finalData.csv";
+    public static String GRAPH_FILE_NAME = "graph.png";
+    public static String MAT_OUTPUT_FILE_NAME = "data.m";
+
+    public static String GRAPH_REWARDS_NAME = "Rewards";
+    public static String GRAPH_LICK_NAME = "Licks";
+    public static String GRAPH_DATA_NAME = "My Data";
+
+    public static String MAT_LOCATIONS_NAME = "locations";
+    public static String MAT_REWARDS_NAME = "rewards";
+    public static String MAT_LAPS_NAME = "laps";
+    public static String MAT_LICK_NAME = "licks";
 
     public static int THREAD_SLEEP_TIME = 50; // in ms, for the threads to sleep
     public static int UPDATE_TIME = 50; // in ms, for the update of the files
