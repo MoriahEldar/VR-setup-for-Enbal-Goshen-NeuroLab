@@ -6,6 +6,10 @@ const int rwrdPin = 7; // yes?
 const int TTLIn = 8;
 const int DRINKING_TIME = 10;
 const int TTL = 0;
+const int lickdtcPin = 4;
+const int LICK_ON = 100;
+const int LICK_OFF = -100;
+
 
 enum Signals { START, REWARD };
 
@@ -20,6 +24,7 @@ int rwrdsNeedToOpen = 0;
 unsigned long rwrdStartTimer = 0;
 bool rewardIsOpened = false;
 bool ttlPulse = false;
+bool lickPulse = false;
 
 void setup() {
   // put your setup code here, to run once:
@@ -27,6 +32,7 @@ void setup() {
   pinMode(rwrdPin, OUTPUT);
   pinMode(rwrdPin, OUTPUT);
   pinMode(TTLIn, INPUT);
+  pinMode(lickdtcPin, INPUT);
   myEnc.write(0);
   oldPosition = 0;
 }
@@ -35,8 +41,8 @@ void loop() {
   signal_handler();
   encoder_handler();
   rwrd_pin_handler();
+  lick_sensor_handler();
   Ttl_handler();
-  lick_sensor();
 }
 
 void encoder_handler() {
@@ -73,6 +79,22 @@ void Ttl_handler() {
   }
 }
 
+
+
+void lick_sensor_handler() {
+  int lickValue = digitalRead(lickdtcPin);
+  if (!lickPulse && lickValue == HIGH) { // PROBLEM do last off?
+    Serial.print(LICK_ON);
+    Serial.print('\n');
+    lickPulse = true;
+  }
+  else if (lickPulse && lickValue == LOW) {
+    Serial.print(LICK_OFF);
+    Serial.print('\n');
+    lickPulse = false;
+  }
+}
+
 void signal_handler() {
   if (Serial.available())
   {
@@ -83,10 +105,6 @@ void signal_handler() {
         break;
     }
   }
-}
-
-void lick_sensor() {
- // how to do that?
 }
 
 void send_lick_signal() {

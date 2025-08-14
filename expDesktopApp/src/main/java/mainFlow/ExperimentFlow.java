@@ -4,34 +4,31 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import classes.ExperimentData;
 import classes.RewardStationDef;
 import consts.Defs;
+import java.awt.Robot;
 
 public class ExperimentFlow {
     private BlenderConnection blender;
     private ArduinoConnection arduino;
     private FileSystem fileSystem;
+    private boolean licked = true;
     private boolean onReward = false;
-    private int sentOnReward = 0; // on Reward changes fast. Helps to sync in.
     private int lapNumber = 1;
     private String mazeLocation = "0";
     private int ttlNumber = 0;
     private long lastUpdateTime = 0;
     
-    public ExperimentFlow(float radius, String dir) {
+    public ExperimentFlow(float radius, ExperimentData exp) {
         this.blender = new BlenderConnection(this, radius);
         this.arduino = new ArduinoConnection(this);
-        this.fileSystem = new FileSystem(this, dir);
-        this.fileSystem.makeOutputData();
-    }
-
-    static void uploadEnv() {
-        // TODO: upload the maze
-        // TODO: 
+        this.fileSystem = new FileSystem(this, exp);
     }
 
     public void startExp(File maze, ArrayList<RewardStationDef> rewards) {
         try {
+            new Thread(() -> this.preventScreenSaver()).start();
             blender.startGame(maze, rewards);
             arduino.connectArduino();
             fileSystem.start();
@@ -42,18 +39,11 @@ public class ExperimentFlow {
     }
 
     public void updateMazeArgs(int lapNumber, boolean onReward, String mazeLocation) {
-        int lastLapNumber = this.lapNumber;
-
         this.lapNumber = lapNumber;
         this.mazeLocation = mazeLocation;
 
-        if(this.lapNumber != lastLapNumber) {
-            System.out.println("Lap number: " + this.lapNumber);
-        }
-
         if (onReward) { //! check if before was not reward?
             triggerGotToReward();
-            this.sentOnReward += 1;
             this.onReward = true;
         }
 
@@ -74,9 +64,16 @@ public class ExperimentFlow {
     }
 
     public void handleArduinoNumber(int number) {
-        if (number == 0) {
+        if (number == 100 || number == -100) { //! this is good only of for each touch there is an up and down signal. like a ttl.
+            if (number == 100) {
+                licked = true;
+            }
+            return; //! cant take down the 100 because then is moves
+        }
+        else if (number == 0) {
             this.ttlNumber += 1;
             fileSystem.updateFileOnTtl(Integer.toString(this.ttlNumber));
+            return;
         }
         else {
             blender.move(number);
@@ -85,10 +82,12 @@ public class ExperimentFlow {
 
     public void finishRun() {
         try {
+            fileSystem.updateBehavioralFile();
             arduino.disconnectArduino();
             blender.closeSocketConnection();
             fileSystem.stopLogging();
-            fileSystem.makeOutputData();
+            fileSystem.makeOutputFiles();
+            //! finish robot
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -96,10 +95,14 @@ public class ExperimentFlow {
 
     public boolean fileSystemIsOnReward() {
         if (onReward) {
-            sentOnReward -= 1;    
-            if (sentOnReward == 0) {
-                onReward = false;
-            }
+            onReward = false;
+            return true;
+        }
+        return false;
+    }
+    public boolean fileSystemLick() {
+        if (licked) {
+            licked = false;
             return true;
         }
 
@@ -120,5 +123,21 @@ public class ExperimentFlow {
 
     public boolean isTtlOn() {
         return this.ttlNumber > 0;
+    }
+
+    public int getTtlNumber() {
+        return this.ttlNumber;
+    }
+
+    public void preventScreenSaver() {
+        try {
+            Robot robot = new Robot();
+            robot.setAutoDelay(60000); // Every 60 seconds
+            
+            // This will move the mouse slightly to prevent screen timeout
+            robot.mouseMove(robot.getAutoDelay(), robot.getAutoDelay()); //! check that it works
+        } catch (java.awt.AWTException e) {
+            e.printStackTrace();
+        }
     }
 }

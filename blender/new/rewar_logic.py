@@ -34,16 +34,11 @@ def apply_reward_logic():
         #         if own['reward'] != "0.0":
         #             player_path['serial_obj'].write(b'1') 
         #             print("reward at station %s was given" %(own['id']))
-        print("collision " + str(player_path['reward_collision']))
-        print("id " + str(own['id']))
-        print("num pass " + str(start['num_pass']))
         if not player_path['reward_collision'] and own['id'] == start['num_pass'] + 1:
             player_path['reward_collision'] = True
-            print("num_pass " + str(start['num_pass']))
             start['num_pass'] += 1
             position = []
 
-            print("rewards: " + str(len(start['rewards'][0])))
             if start['num_pass'] < len(start['rewards'][0]):
                 position = start['rewards'][0][start['num_pass']]
                 own['id'] = start['num_pass'] + 1
@@ -60,7 +55,6 @@ def apply_reward_logic():
 
             positionDeepCopy = position.copy()
             positionDeepCopy.append(0)
-            print("position: " + str(positionDeepCopy))
             own.worldPosition = positionDeepCopy
             #! does it work? the changing position thing?
             # TODO give a reward (send signal to the java program)

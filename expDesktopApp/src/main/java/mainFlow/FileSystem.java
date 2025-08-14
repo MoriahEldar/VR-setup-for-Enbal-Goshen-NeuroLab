@@ -6,9 +6,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,58 +31,47 @@ import com.jmatio.types.MLDouble;
 import com.jmatio.types.MLArray;
 import com.jmatio.types.MLUInt8;
 
+import classes.ExperimentData;
 import consts.Defs;
 
 public class FileSystem {
     String dir;
 
+    ExperimentFlow expFlow;
     //! TODO check it points on the same experiment
-    ExperimentFlow exp;
+    ExperimentData expData;
 
     private String BEHAVIORAL_FILE = Defs.BEHAVIORAL_FILE_NAME;
-    private String SYNC_FILE = Defs.SYNC_FILE_NAME; // and date and so on
-    private String MAT_OUTPUT_FILE = Defs.MAT_OUTPUT_FILE_NAME;
-    private String GRAPH_OUTPUT_FILE = Defs.GRAPH_FILE_NAME;
+    private String SYNC_FILE = ""; // and date and so on
+    private String MAT_OUTPUT_FILE = "";
+    private String GRAPH_OUTPUT_FILE = "";
     private boolean running = true;
     private final BlockingQueue<String> bhvQueue = new LinkedBlockingQueue<>();
     //! to do, change the program to use ExecutorService (and to constructor) instead of threads
     private final ExecutorService executor = Executors.newFixedThreadPool(2);
     private final String SEPARATOR = Defs.SEPARATOR; // Separator for CSV files
-
     
-    public FileSystem(ExperimentFlow exp, String dir) {
-        this.exp = exp;
-        this.dir = dir.trim();
+    public FileSystem(ExperimentFlow expFlow, ExperimentData expData) {
+        this.expFlow = expFlow;
+        this.expData = expData;
+        this.dir = expData.getDir();
         
         if (dir != "" && !dir.endsWith(File.separator)) {
             this.dir += File.separator;
         }
 
         this.BEHAVIORAL_FILE = dir + this.BEHAVIORAL_FILE;
-        this.SYNC_FILE = dir + this.SYNC_FILE;
-        this.MAT_OUTPUT_FILE = dir + this.MAT_OUTPUT_FILE;
-        this.GRAPH_OUTPUT_FILE = dir + this.GRAPH_OUTPUT_FILE;
     }
 
     public void start() {
-        createBehavioralFile();
         startLoggingBehavioral();
-    }
-
-    private void createBehavioralFile() {
-        // try (BufferedWriter writer = new BufferedWriter(new FileWriter(BEHAVIORAL_FILE, true))) {
-        //     writer.write(Defs.BEHAVIORAL_FILE_HEADER); // Header for the CSV file
-        //     writer.newLine();
-        //     writer.flush();
-        // } catch (IOException e) {
-        //     e.printStackTrace();
-        // }
     }
 
     // Start the continuous file logging in a background thread
     private void startLoggingBehavioral() {
+        this.createFile(BEHAVIORAL_FILE);
         executor.submit(() -> {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(BEHAVIORAL_FILE, true))) { // TODO remove the append
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(BEHAVIORAL_FILE))) { //! check if works (better) without append
                 while (running || !bhvQueue.isEmpty()) {
                     String data;
                     while ((data = bhvQueue.poll()) != null) {
@@ -98,10 +86,12 @@ public class FileSystem {
             }
         });
     }
-
-    private String getBhvStringData() {
-        return exp.getMazeLocation() + SEPARATOR + exp.fileSystemIsOnReward() + SEPARATOR + exp.getLapNumber();
-    } 
+    
+    // Method to stop both logging operations safely
+    public void stopLogging() {
+        running = false;
+        executor.shutdown();
+    }
 
     // Method to queue triggered updates
     public void updateFileOnTtl(String ttlNumber) {
@@ -110,11 +100,28 @@ public class FileSystem {
     }
 
     public void updateBehavioralFile() {
-        bhvQueue.offer(System.currentTimeMillis() + SEPARATOR + getBhvStringData() + SEPARATOR + '0'); // add the ttl time
+        this.updateFileOnTtl("0"); // add the ttl time
     }
 
-    public void syncFiles() {
+    public void makeOutputFiles() {
+        updateFileNames();
+        syncFiles();
+        handleGraphAndMatFiles();
+
+        if (new File(this.BEHAVIORAL_FILE).delete()) {
+            System.out.println("bhv File deleted successfully.");
+        } else {
+            System.out.println("Failed to delete bhv file.");
+        }
+    }
+
+    private void syncFiles() {
+        if (SYNC_FILE.trim() == "") {
+            this.updateFileNames();
+        }
+
         System.out.println("syncing files");
+        this.createFile(SYNC_FILE);
         this.stopLogging();
         // This method can be used to ensure all data is written to the files
         // It will wait for the queues to be empty before proceeding
@@ -126,12 +133,19 @@ public class FileSystem {
             e.printStackTrace();
         }
 
-        if (!exp.isTtlOn()) {
+        //! check that it works
+        if (!expFlow.isTtlOn()) {
             // If there is no TTL, just copy the behavioral file to the sync file
             try {
-                Path source = Path.of(BEHAVIORAL_FILE);
-                Path target = Path.of(SYNC_FILE);
-                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                // Add header to the beginning of the target file, then copy the rest of the source file
+                try (
+                    BufferedReader reader = new BufferedReader(new FileReader(BEHAVIORAL_FILE));
+                    BufferedWriter writer = new BufferedWriter(new FileWriter(SYNC_FILE))
+                ) {
+                    writer.write(Defs.BEHAVIORAL_FILE_HEADER);
+                    writer.newLine();
+                    reader.transferTo(writer);
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -141,13 +155,14 @@ public class FileSystem {
         // if there is a ttl, we need to group the data by ttl
         // Map from non-zero label to the list of rows under that group
         List<String[]> group = new ArrayList<>();
+        String lastTtlNumber = Integer.toString(expFlow.getTtlNumber());
 
         try (BufferedReader br = new BufferedReader(new FileReader(BEHAVIORAL_FILE))) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(SYNC_FILE))) {
                 writer.write(Defs.BEHAVIORAL_FILE_HEADER); // Header for the CSV file
                 writer.newLine();
                 String line;
-                String currentLabel = null; // TODO crop data before 1
+                String currentLabel = null;
 
                 while ((line = br.readLine()) != null) {
                     // split on seperetor
@@ -155,22 +170,27 @@ public class FileSystem {
                     String last = fields[Defs.BHVFILE_TTL_NUMBER].trim();
 
                     // if this row’s last column is non-zero, start a new group
-                    if (last.equals("0") && currentLabel != null) {
+                    if (last.equals("0") && currentLabel != null && !currentLabel.equals(lastTtlNumber)) {
                         group.add(fields); // add the row to the current group
                     }
-                    if (!last.isEmpty() && !last.equals("0")) {
-                        if (currentLabel == null) {
+                    if ((!last.isEmpty() && !last.equals("0")) || currentLabel == null || currentLabel.equals(lastTtlNumber)) {
+                        if (currentLabel == null || currentLabel.equals(lastTtlNumber)) {
                             group = new ArrayList<>();
                             group.add(fields); // initialize the group with the first row
                         }
-                        if (currentLabel != null) {
+                        else {
                             group.add(fields);
                         }
                         String data = getGroupData(group);
                         writer.write(data);
                         writer.newLine();
-                        currentLabel = last;
+                        if (!last.isEmpty() && !last.equals("0")) {
+                            currentLabel = last;
+                        } else {
+                            currentLabel = null;
+                        }
                         group.clear(); // clear the group for the next set of rows
+                        //! TODO: check that works properly and writes also the last data (and not to mat)
                     }
                 }
                 
@@ -191,111 +211,181 @@ public class FileSystem {
         String time = last[Defs.BHVFILE_TIME_NUMBER]; // get the last time
         String lap = last[Defs.BHVFILE_LAP_NUMBER]; // get the last lap
         String TTL = last[Defs.BHVFILE_TTL_NUMBER]; // get the last ttl
-        double location = 0;
+        double totalLocation = 0;
         boolean onReward = false;
+        boolean lick = false;
+        int locationChange = 0;
+        double lastLocation = -100;
 
         for (String[] row : list) {
             if(row[Defs.BHVFILE_REWARD_NUMBER].equals("true")) { // check if on reward
                 onReward = true;
             }
+            if(row[Defs.BHVFILE_LICK_NUMBER].equals("true")) { // check if on reward
+                lick = true;
+            }
 
             try {
-                location += Double.parseDouble(row[Defs.BHVFILE_LOCATION_NUMBER]); // sum the locations
+                double location = Double.parseDouble(row[Defs.BHVFILE_LOCATION_NUMBER]);
+                if (lastLocation != 100 && Math.abs(lastLocation - location) > 300) {
+                    int rowIndex = list.indexOf(row);
+                    locationChange = rowIndex;
+                    totalLocation = 0;
+                }
+                lastLocation = location;
+                totalLocation += location; // sum the locations
             } catch (NumberFormatException e) {
                 System.err.println("Invalid location data in row: " + Arrays.toString(row));
                 continue; // skip rows with invalid location data
             }
         }
 
-        location /= size; // average the location
+        totalLocation /= size - locationChange; // average the location
 
-        return time + SEPARATOR + location + SEPARATOR + onReward + SEPARATOR + lap + SEPARATOR + TTL; // return the data in the format: time, location, onReward, lap, ttlNumber
+        return time + SEPARATOR + totalLocation + SEPARATOR + onReward + SEPARATOR + lick + SEPARATOR + lap + SEPARATOR + TTL; // return the data in the format: time, location, onReward, lick, lap, ttlNumber
     }
 
-    public void makeOutputData() {
-        File syncFile = new File(SYNC_FILE);
-        if (!syncFile.exists()) {
-            syncFiles();
-        }
-
+    private void handleGraphAndMatFiles() {
         XYSeries dataXY = new XYSeries(Defs.GRAPH_DATA_NAME);
         XYSeries rewardsXY = new XYSeries(Defs.GRAPH_REWARDS_NAME);
-        XYSeries lickXY = new XYSeries(Defs.GRAPH_LICK_NAME);
+        XYSeries licksXY = new XYSeries(Defs.GRAPH_LICK_NAME);
         List<Double> locations = new ArrayList<>();
         List<Boolean> licks = new ArrayList<>();
         List<Boolean> rewards = new ArrayList<>();
         List<Boolean> laps = new ArrayList<>();
-        double roundLength = exp.getRadius() * 2 * Math.PI; // Calculate the round length based on the radius
+        double roundLength = expFlow.getRadius() * 2 * Math.PI; // Calculate the round length based on the radius
         long firstTime = 0;
+        double lastLickSec = -100;
+        double lastLocation = -100;
+        double lastSec = 0;
+        int lastLap = 0;
         
         try (BufferedReader br = new BufferedReader(new FileReader(SYNC_FILE))) {
             String line;
-            int lastLap = 0;
             while ((line = br.readLine()) != null) {
                 // Assuming the file is CSV and SEPARATOR is the delimiter
                 String[] row = line.split(SEPARATOR);
                 
-                if (firstTime == 0) {
-                    try {
-                        firstTime = Long.parseLong(row[Defs.BHVFILE_TIME_NUMBER]);
-                    } catch (NumberFormatException e) {
-                        System.err.println("Invalid time data in row: " + Arrays.toString(row));
-                        continue; // skip rows with invalid time data
+                // check if ttl
+                boolean ttl = false;
+                try {
+                    int ttlNumber = Integer.parseInt(row[Defs.BHVFILE_TTL_NUMBER]);
+                    if (ttlNumber > 0) {
+                        ttl = true;
                     }
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid ttl data in row: " + Arrays.toString(row));
+                    continue; // skip rows with invalid ttl data
+                }
+                
+                // find first time for graph
+                long time = 0;
+                try {
+                    time = Long.parseLong(row[Defs.BHVFILE_TIME_NUMBER]);
+                    if (firstTime == 0) {
+                        firstTime = time;
+                    }
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid time data in row: " + Arrays.toString(row));
+                    continue; // skip rows with invalid time data
                 }
 
+                // mat data
+                int addFictive = 0;
                 double location = 0;
                 try {
                     location = Double.parseDouble(row[Defs.BHVFILE_LOCATION_NUMBER]); // sum the locations
-                    locations.add(location);
+                    if (lastLocation != -100) {
+                        if (lastLocation - location > 300) {
+                            addFictive = 1;
+                        }
+                        else if(lastLocation - location < -300) {
+                            addFictive = -1;
+                        }
+                    }
+                    lastLocation = location;
+                    if (ttl) {
+                        locations.add(location);
+                    }
                 } catch (NumberFormatException e) {
                     System.err.println("Invalid location data in row: " + Arrays.toString(row));
                     continue; // skip rows with invalid location data
                 }
 
-                // boolean lick = Boolean.parseBoolean(row[Defs.BHVFILE_LICK_NUMBER]);
-                // licks.add(lick);
+                boolean lick = Boolean.parseBoolean(row[Defs.BHVFILE_LICK_NUMBER]);
+                if (ttl) {
+                    licks.add(lick);
+                }
+                
                 boolean reward = Boolean.parseBoolean(row[Defs.BHVFILE_REWARD_NUMBER]);
-                rewards.add(reward);
+                if (ttl) {
+                    rewards.add(reward);
+                }
                 
                 int lap = Integer.parseInt(row[Defs.BHVFILE_LAP_NUMBER]);
-                if (lap != lastLap) {
-                    laps.add(true);
-                    lastLap = lap;
-                }
-                else {
-                    laps.add(false);
+                if (ttl) {
+                    if (lap != lastLap) {
+                        laps.add(true);
+                        lastLap = lap;
+                    }
+                    else {
+                        laps.add(false);
+                    }
                 }
 
+                // graph data
+                double sec = (time - firstTime) / 1000.0;
                 double lineLocation = (location/360) * roundLength; // convert the location to a line location
-                try {
-                    long timeInMillis = Long.parseLong(row[Defs.BHVFILE_TIME_NUMBER]) - firstTime; // calculate the time in milliseconds
-                    if (!Double.isNaN(lineLocation) && !Double.isInfinite(lineLocation)) {
-                        dataXY.add(timeInMillis, lineLocation); // add the data to the series for graphing
-                        if (reward) {
-                            rewardsXY.add(timeInMillis, lineLocation); // add the point to the list of reward points
+                if (!Double.isNaN(lineLocation) && !Double.isInfinite(lineLocation)) {
+                    if (addFictive != 0) {
+                        double gap = (lastSec - sec)/3.0;
+                        if(addFictive == 1) {
+                            dataXY.add(lastSec + gap, roundLength);
+                            dataXY.add(lastSec + 2*gap, 0);
+                        }
+                        else {
+                            dataXY.add(lastSec + gap, 0);
+                            dataXY.add(lastSec + 2*gap, roundLength);
                         }
                     }
-                } catch (NumberFormatException e) {
-                    System.err.println("Invalid time data in row: " + row[Defs.BHVFILE_TTL_NUMBER]);
+                    dataXY.add(sec, lineLocation); // add the data to the series for graphing
+                    
+                    if (reward) {
+                        rewardsXY.add(sec, lineLocation); // add the point to the list of reward points
+                    }
+                    
+                    if (lick) {
+                        if ((sec - lastLickSec) > Defs.GRAPH_LICK_TIME_WINDOW) {
+                            licksXY.add(sec, lineLocation); // add the point to the list of lick points
+                        }
+                        lastLickSec = sec;
+                    }
                 }
+                lastSec = sec;
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        makeMatFile(locations, rewards, laps, licks);
-        makeGraph(dataXY, rewardsXY);
+        if (expFlow.isTtlOn()) {
+            makeMatFile(locations, rewards, laps, licks);
+        }
+        makeGraph(dataXY, rewardsXY, licksXY);
     }
 
-    private void makeGraph(XYSeries series, XYSeries rewards) {
+    // ===============================================
+    // technical graph functions
+    // ===============================================
+    private void makeGraph(XYSeries series, XYSeries rewards, XYSeries licks) {
         XYSeriesCollection dataset = new XYSeriesCollection();
         dataset.addSeries(series);
         dataset.addSeries(rewards);
+        dataset.addSeries(licks);
+
         // Create the chart
         JFreeChart chart = ChartFactory.createXYLineChart(
-                "laps: " + exp.getLapNumber() + "\n rewards: " + rewards.getItemCount(),
-                "time (ms)",
+                "laps: " + expFlow.getLapNumber() + "\n rewards: " + rewards.getItemCount() + "\n licks: " + licks.getItemCount(),
+                "time (s)",
                 "location (cm)",
                 dataset
         );
@@ -312,6 +402,12 @@ public class FileSystem {
         renderer.setSeriesShapesVisible(1, true);
         renderer.setSeriesPaint(1, Color.GREEN);
         renderer.setSeriesShape(1, new java.awt.geom.Ellipse2D.Double(-3, -3, 6, 6));
+
+        // Licks: hide line, show shapes
+        renderer.setSeriesLinesVisible(2, false);
+        renderer.setSeriesShapesVisible(2, true);
+        renderer.setSeriesPaint(2, Color.RED);
+        renderer.setSeriesShape(2, new java.awt.geom.Ellipse2D.Double(-3, -3, 6, 6));
 
         org.jfree.chart.plot.XYPlot plot = chart.getXYPlot();
         plot.setRenderer(renderer);
@@ -372,10 +468,10 @@ public class FileSystem {
             // write the arrays to the .mat file
             try {
                 ArrayList<MLArray> mlList = new ArrayList<>();
-                mlList.add(new MLDouble(Defs.MAT_LOCATIONS_NAME, locationArr, n));
-                mlList.add(new MLUInt8(Defs.MAT_REWARDS_NAME, onRewardArr, n));
-                mlList.add(new MLUInt8(Defs.MAT_LAPS_NAME, lapArr, n));
-                mlList.add(new MLUInt8(Defs.MAT_LICK_NAME, licksArr, n));
+                mlList.add(new MLDouble("location", locationArr, n));
+                mlList.add(new MLUInt8("onReward", onRewardArr, n));
+                mlList.add(new MLUInt8("lap", lapArr, n));
+                mlList.add(new MLUInt8("lick", licksArr, n));
                 new com.jmatio.io.MatFileWriter(this.MAT_OUTPUT_FILE, mlList);
                 System.out.println("MAT file created: " + this.MAT_OUTPUT_FILE);
             } catch (Exception e) {
@@ -386,9 +482,31 @@ public class FileSystem {
         }
     }
 
-    // Method to stop both logging operations safely
-    public void stopLogging() {
-        running = false;
-        executor.shutdown();
+    // ===============================================
+    // technical help functions
+    // ===============================================
+    private void updateFileNames() {
+        String newName = this.expData.getCageName() + Defs.EXP_NAME_SEPARATOR + this.expData.getMouseName() + Defs.EXP_NAME_SEPARATOR;
+        LocalDateTime myDateObj = LocalDateTime.now();
+        DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("ddMMyyyy_HHmm");
+        newName += myFormatObj.format(myDateObj);
+        this.SYNC_FILE = dir + newName + Defs.SYNC_FILE_NAME_ENDING;
+        this.MAT_OUTPUT_FILE = dir + newName + Defs.MAT_OUTPUT_FILE_NAME_ENDING;
+        this.GRAPH_OUTPUT_FILE = dir + newName + Defs.GRAPH_FILE_NAME_ENDING;
     }
+
+    private void createFile(String path) {
+        File file = new File(path);
+        if (!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private String getBhvStringData() {
+        return expFlow.getMazeLocation() + SEPARATOR + expFlow.fileSystemIsOnReward() + SEPARATOR + expFlow.fileSystemLick() + SEPARATOR + expFlow.getLapNumber();
+    } 
 }

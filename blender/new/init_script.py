@@ -41,7 +41,6 @@ def init_rewards():
         params_index = args.index('--') + 1
         start_params = ''.join(args[params_index:])
         if len(start_params) >= 1:
-            print("rewardList is:", start_params, "type:", type(start_params))
             start_obj['rewards'] = json.loads(start_params)
     
     

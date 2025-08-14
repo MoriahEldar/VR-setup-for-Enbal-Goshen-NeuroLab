@@ -75,6 +75,7 @@ def apply_movement():
               player_path['backwards_movment'] = 1
 
           sendDataToJava(delta) # will do it on time? check after
+ 
   
 def move_player(delta):
   # This function gets the deltea move and moves the player in the game:

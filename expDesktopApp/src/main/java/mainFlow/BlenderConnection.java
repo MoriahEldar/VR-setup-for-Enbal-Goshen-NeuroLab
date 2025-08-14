@@ -141,8 +141,7 @@ public class BlenderConnection {
     public void move(int movement) {
         // send to blender the movment that should have
         if(movement != 0 && out != null) {
-            System.out.println("movement: " + movement);
-            movement = movement * -1; //! TODO check!!!
+            movement = movement * -1;
             try {
                 out.write(String.valueOf(movement + "\n").getBytes(StandardCharsets.UTF_8)); // Send message to servers
             }
