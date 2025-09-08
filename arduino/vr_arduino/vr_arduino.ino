@@ -106,30 +106,3 @@ void signal_handler() {
     }
   }
 }
-
-void send_lick_signal() {
-
-}
-
-void open_valve() {
-
-}
-
-void reward_control() {
-  // TODO also when gets signal from the computer
-  // but also when its configured ידני
-
-}
-
-void treadmill_control() {
-
-}
-
-void start_signal() {
-
-}
-
-void stop_signal() {
-
-}
-// use Sensor
