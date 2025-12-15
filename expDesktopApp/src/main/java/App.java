@@ -1,4 +1,5 @@
 import java.io.File;
+import java.nio.file.FileSystem;
 import java.util.ArrayList;
 
 import classes.ExperimentData;
@@ -10,7 +11,14 @@ public class App {
         ExperimentData expData = new ExperimentData("A1", "B1", "");
         ExperimentFlow exp = new ExperimentFlow(35, expData);
         ArrayList<RewardStationDef> rewards = new ArrayList<>();
-        rewards.add(new RewardStationDef(3, 2, 1, 0));
-        exp.startExp(new File("C:\\Users\\Yonina\\OneDrive - Jerusalem College of Technology - Machon Lev\\Documents\\neuro_lab\\Blender mazes\\training\\training_csv_random_rew_new_small_treadmill.blend.exe"), rewards);
+
+        rewards.add(new RewardStationDef(3, 2));
+        rewards.add(new RewardStationDef(4, 2, 
+            new Integer[] {1,2,4,5}, // zones
+            new Integer[] {0,0,1,-1}, // placeInZone
+            new Double[] {1.0,0.9,0.7,1.0})); // probability
+
+        exp.startExp(new File("C:\\Users\\Yonina\\OneDrive - Jerusalem College of Technology - Machon Lev\\Documents\\n" + //
+                        "euro_lab\\Blender mazes\\startAgain\\env _A_csv_random_rew_new_small_treadmill.blend.exe"), rewards);
     }
 }
