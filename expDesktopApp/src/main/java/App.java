@@ -11,6 +11,7 @@ public class App {
         ExperimentData expData = new ExperimentData("A1", "B1", "");
         ExperimentFlow exp = new ExperimentFlow(35, expData);
         ArrayList<RewardStationDef> rewards = new ArrayList<>();
+        //test
 
         rewards.add(new RewardStationDef(3, 2));
         // rewards.add(new RewardStationDef(4, 2, 
