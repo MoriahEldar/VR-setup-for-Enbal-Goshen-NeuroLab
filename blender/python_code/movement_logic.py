@@ -10,6 +10,7 @@ import select
 # This script is in charge of moving the player in the game according to the encoder information send from the java program
 
 SENSITIVITY_PARAMETER = 0.00097
+#test
 
   
 player_path = bge.logic.getCurrentScene().objects['player_path']    
