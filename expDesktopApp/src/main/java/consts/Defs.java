@@ -17,7 +17,7 @@ public class Defs {
         5, new int[]{1, 2, 3, 4, 5}
     );
 
-    public static String BEHAVIORAL_FILE_NAME = "behavioralData.csv";
+    public static String BEHAVIORAL_FILE_NAME = "BaseBehavioralData.csv";
     public static String SYNC_FILE_NAME_ENDING = ".csv";
     public static String GRAPH_FILE_NAME_ENDING = ".png";
     public static String MAT_OUTPUT_FILE_NAME_ENDING = ".mat";

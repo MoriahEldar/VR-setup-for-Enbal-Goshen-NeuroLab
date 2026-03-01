@@ -42,6 +42,7 @@ public class FileSystem {
     ExperimentData expData;
 
     private String BEHAVIORAL_FILE = Defs.BEHAVIORAL_FILE_NAME;
+    private String BEHAVIORAL_FILE_NO_TTL = "";
     private String SYNC_FILE = ""; // and date and so on
     private String MAT_OUTPUT_FILE = "";
     private String GRAPH_OUTPUT_FILE = "";
@@ -108,6 +109,10 @@ public class FileSystem {
         syncFiles();
         handleGraphAndMatFiles();
 
+        if(expFlow.isTtlOn()) {
+            makeBaseBehavioralFile(this.BEHAVIORAL_FILE_NO_TTL);
+        }
+        
         if (new File(this.BEHAVIORAL_FILE).delete()) {
             System.out.println("bhv File deleted successfully.");
         } else {
@@ -133,23 +138,9 @@ public class FileSystem {
             e.printStackTrace();
         }
 
-        //! check that it works
         if (!expFlow.isTtlOn()) {
             // If there is no TTL, just copy the behavioral file to the sync file
-            try {
-                // Add header to the beginning of the target file, then copy the rest of the source file
-                try (
-                    BufferedReader reader = new BufferedReader(new FileReader(BEHAVIORAL_FILE));
-                    BufferedWriter writer = new BufferedWriter(new FileWriter(SYNC_FILE))
-                ) {
-                    writer.write(Defs.BEHAVIORAL_FILE_HEADER);
-                    writer.newLine();
-                    reader.transferTo(writer);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return;
+            makeBaseBehavioralFile(SYNC_FILE);
         }
 
         // if there is a ttl, we need to group the data by ttl
@@ -489,6 +480,7 @@ public class FileSystem {
         LocalDateTime myDateObj = LocalDateTime.now();
         DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("ddMMyyyy_HHmm");
         newName += myFormatObj.format(myDateObj);
+        this.BEHAVIORAL_FILE_NO_TTL = dir + newName + Defs.BEHAVIORAL_FILE_NAME;
         this.SYNC_FILE = dir + newName + Defs.SYNC_FILE_NAME_ENDING;
         this.MAT_OUTPUT_FILE = dir + newName + Defs.MAT_OUTPUT_FILE_NAME_ENDING;
         this.GRAPH_OUTPUT_FILE = dir + newName + Defs.GRAPH_FILE_NAME_ENDING;
@@ -502,6 +494,22 @@ public class FileSystem {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void makeBaseBehavioralFile(String fileName) {
+        try {
+            // Add header to the beginning of the target file, then copy the rest of the source file
+            try (
+                BufferedReader reader = new BufferedReader(new FileReader(BEHAVIORAL_FILE));
+                BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))
+            ) {
+                writer.write(Defs.BEHAVIORAL_FILE_HEADER);
+                writer.newLine();
+                reader.transferTo(writer);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
