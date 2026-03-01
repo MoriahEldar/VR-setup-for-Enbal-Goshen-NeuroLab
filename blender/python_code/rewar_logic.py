@@ -1,10 +1,9 @@
 import bge
 import GameLogic
 import numpy as np
-# this script is linked to rewardSTi object for 1 < i < 26
-# This script is in charge of deciding if a reward appears (in case its probability is neither 0 nor 1)
-# and then in charge of giving a reward signal to the multi_ttl arduino, so that the mouse may recieve its reward.
-# This code is triggered ONLY if the system identifies a collision!!
+# this script is linked to rewardST
+# This script is in charge of configuring the reward to the right place each time and to announce a collision
+# This code is triggered ONLY if the system identifies a collision (but not always it is really a collision)!!
 player_path = bge.logic.getCurrentScene().objects['player_path']
 player = bge.logic.getCurrentScene().objects['player']
 
@@ -37,7 +36,5 @@ def apply_reward_logic():
             positionDeepCopy = position.copy()
             positionDeepCopy.append(0)
             own.worldPosition = positionDeepCopy
-            #! does it work? the changing position thing?
-            # TODO give a reward (send signal to the java program)
 
 apply_reward_logic()             

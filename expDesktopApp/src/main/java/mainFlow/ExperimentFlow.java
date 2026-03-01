@@ -19,6 +19,9 @@ public class ExperimentFlow {
     private String mazeLocation = "0";
     private int ttlNumber = 0;
     private long lastUpdateTime = 0;
+    // TICKS
+    //for syncing the senstivity parameter
+    //private int sumTicks = 0;
     
     public ExperimentFlow(float radius, ExperimentData exp) {
         this.blender = new BlenderConnection(this, radius);
@@ -76,12 +79,16 @@ public class ExperimentFlow {
             return;
         }
         else {
+            // TICKS
+            //sumTicks += number;
             blender.move(number);
         }
     }
 
     public void finishRun() {
         try {
+            // TICKS
+            //System.out.println("sumTicks: " + sumTicks);
             fileSystem.updateBehavioralFile();
             arduino.disconnectArduino();
             blender.closeSocketConnection();

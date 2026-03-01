@@ -11,7 +11,6 @@ public class App {
         ExperimentData expData = new ExperimentData("A1", "B1", "");
         ExperimentFlow exp = new ExperimentFlow(35, expData);
         ArrayList<RewardStationDef> rewards = new ArrayList<>();
-        //test
 
         rewards.add(new RewardStationDef(3, 2));
         // rewards.add(new RewardStationDef(4, 2, 
@@ -19,7 +18,6 @@ public class App {
         //     new int[] {0,0,1,-1}, // placeInZone
         //     new double[] {1.0,0.9,0.7,1.0})); // probability
 
-        //bla
         exp.startExp(new File("C:\\Users\\Yonina\\OneDrive - Jerusalem College of Technology - Machon Lev\\Documents\\n" + //
                         "euro_lab\\Blender mazes\\startAgain\\env _A_csv_random_rew_new_small_treadmill.blend.exe"), rewards);
     }

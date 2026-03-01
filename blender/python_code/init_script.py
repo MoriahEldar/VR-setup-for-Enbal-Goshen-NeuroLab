@@ -7,7 +7,6 @@ import random
 # this script is linked to the outer_wall object
 # This script is activated as soon as the game starts (even before the start button is pressed). It's
 # in charge of reading the configuration file and extracting all relevant information from it
-# ?shold it be change to be manual called?
 
 PORT = 65432
 cont = bge.logic.getCurrentController()
@@ -22,6 +21,8 @@ def init():
         return
     player_path['running'] = True
     player_path['laps_counter'] = 1
+    # for checking the senstivity parameter:
+    # player_path['first'] = True
 
     # call for build functions
     init_rewards()

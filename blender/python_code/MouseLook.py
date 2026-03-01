@@ -23,7 +23,6 @@ import math
 # between the calib val and the amount of movement for each rotary encoder round. Currently it seems to be
 # working good, but in case the maze is not calibrated changing this value might help (it is used in the
 # useMouseLook function down below).
-# ?change name?
 
 # define main program
 def main():

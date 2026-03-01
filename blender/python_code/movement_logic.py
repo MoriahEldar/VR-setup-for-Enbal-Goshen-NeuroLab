@@ -9,18 +9,11 @@ import select
 # This script is linked to the player_path object
 # This script is in charge of moving the player in the game according to the encoder information send from the java program
 
-SENSITIVITY_PARAMETER = 0.00097
+TICKS_AMOUT_PER_ROUND = 6805 #! TODO check parameter for real
+SENSITIVITY_PARAMETER = (2 * math.pi) / TICKS_AMOUT_PER_ROUND
 
   
 player_path = bge.logic.getCurrentScene().objects['player_path']    
-
-
-# Update the location and IR information in the data table 
-# player_path['game_counter']+=1 
-# col = player_path['ROTATE_ENCODER_DATA'] 
-# row = player_path['game_counter']
-# player_path['output_data'][col][row] = player_path['last_position']
-# player_path['output_data'][col][row] = player_path['last_position']
 
 def is_good_number(s):
     try:
@@ -82,10 +75,15 @@ def move_player(delta):
   # This function gets the deltea move and moves the player in the game:
   # Find out the current coordinates:
   [_,_,current_z] = player_path.worldOrientation.to_euler()
+  
+  # for checking the sensetivity parameter
+  # if(player_path['first']):
+  #   player_path['first'] = False
+  #   print("current_z: " + str(calculateLocationRightWay()))
+
   # Change the z coordinate:
   #! Notice: the z coordinate is the oppesite way, - is forward and + is backwards!! That's why i multiply by -1, to sync it
   player_path.worldOrientation = [0,0,current_z + SENSITIVITY_PARAMETER*delta*-1]
-
 
 def sendDataToJava(new_position):
   # This function sends parameters to the java program:
@@ -94,8 +92,6 @@ def sendDataToJava(new_position):
   #! check that the data is sent after the recalculation of the treat and lap number!!
   # Send the parameters to the java program:
 
-  #? add the time here? or in the java program, before sending?
-  #? add maze location?
   data_to_send = {
         "laps": player_path['laps_counter'],
         "reward": player_path['reward_collision'],
@@ -106,7 +102,7 @@ def sendDataToJava(new_position):
   player_path['java_socket_obj'].send((json_data + '\n').encode('utf-8'))
 
 def calculateLocationRightWay():
-   # Z is the oppesite way, so it's no trivial
+  # Z is the oppesite way, so it's not trivial
   radsLocation = player_path.worldOrientation.to_euler().z * -1
   degLocation = math.degrees(radsLocation) % 360
   if degLocation < 0:

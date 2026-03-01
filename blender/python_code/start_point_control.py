@@ -28,7 +28,6 @@ def apply_start_logic():
     cont = bge.logic.getCurrentController()
     own = cont.owner
 
-
     # initializing the stations at the beginning of the experiment
     if not own['initiated']:
         player_path['reward_collision'] = False

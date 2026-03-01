@@ -1,5 +1,5 @@
 package consts;
-//test
+
 import java.util.Map;
 
 public class Defs {
