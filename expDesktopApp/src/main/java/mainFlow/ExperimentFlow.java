@@ -13,12 +13,16 @@ public class ExperimentFlow {
     private BlenderConnection blender;
     private ArduinoConnection arduino;
     private FileSystem fileSystem;
-    private boolean licked = true;
+    private boolean licked = false;
     private boolean onReward = false;
     private int lapNumber = 1;
     private String mazeLocation = "0";
     private int ttlNumber = 0;
     private long lastUpdateTime = 0;
+    // for sanity reasons
+    private boolean firstTtl = true;
+    private boolean firstMovment = true;
+    private boolean firstLick = true;
     
     public ExperimentFlow(float radius, ExperimentData exp) {
         this.blender = new BlenderConnection(this, radius);
@@ -64,18 +68,21 @@ public class ExperimentFlow {
     }
 
     public void handleArduinoNumber(int number) {
-        if (number == 100 || number == -100) { //! this is good only of for each touch there is an up and down signal. like a ttl.
-            if (number == 100) {
+        if (number == Defs.ARDUINO_START_LICK_CODE || number == Defs.ARDUINO_END_LICK_CODE) { //! this is good only of for each touch there is an up and down signal. like a ttl.
+            if (number == Defs.ARDUINO_START_LICK_CODE) {
+                lickSanityPrint();
                 licked = true;
             }
-            return; //! cant take down the 100 because then is moves
+            return; //! cant take down the -100 because then it moves
         }
-        else if (number == 0) {
+        else if (number == Defs.ARDUINO_TTL_CODE) {
+            ttlSanityPrint();
             this.ttlNumber += 1;
             fileSystem.updateFileOnTtl(Integer.toString(this.ttlNumber));
             return;
         }
         else {
+            movmentSanityPrint(number);
             blender.move(number);
         }
     }
@@ -136,9 +143,33 @@ public class ExperimentFlow {
             robot.setAutoDelay(60000); // Every 60 seconds
             
             // This will move the mouse slightly to prevent screen timeout
-            robot.mouseMove(robot.getAutoDelay(), robot.getAutoDelay()); //! check that it works
+            robot.mouseMove(robot.getAutoDelay(), robot.getAutoDelay());
         } catch (java.awt.AWTException e) {
             e.printStackTrace();
+        }
+    }
+
+    // ==================================
+    // For testing purposes
+    // ==================================
+    private void lickSanityPrint() {
+        if (firstLick) {
+            System.out.println("Arduino lick detected!");
+            firstLick = false;
+        }
+    }
+
+    private void ttlSanityPrint() {
+        if (firstTtl) {
+            System.out.println("Arduino TTL detected!");
+            firstTtl = false;
+        }
+    }
+
+    private void movmentSanityPrint(int number) {
+        if (firstMovment) {
+            System.out.println("Arduino movment detected! with code: " + number);
+            firstMovment = false;
         }
     }
 }

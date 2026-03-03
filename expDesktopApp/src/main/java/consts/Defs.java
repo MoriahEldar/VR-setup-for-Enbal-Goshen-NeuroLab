@@ -17,6 +17,11 @@ public class Defs {
         5, new int[]{1, 2, 3, 4, 5}
     );
 
+    public static int ARDUINO_BAUD_RATE = 9600;
+    public static int ARDUINO_TTL_CODE = 0;
+    public static int ARDUINO_START_LICK_CODE = 100;
+    public static int ARDUINO_END_LICK_CODE = -100;
+
     public static String BEHAVIORAL_FILE_NAME = "BaseBehavioralData.csv";
     public static String SYNC_FILE_NAME_ENDING = ".csv";
     public static String GRAPH_FILE_NAME_ENDING = ".png";

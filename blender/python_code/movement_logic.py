@@ -56,8 +56,9 @@ def apply_movement():
   if java_code_read:
     split_code_read = java_code_read.split("\n")
     for code in split_code_read:
-        #? maybe to sum all numbers?
+        sanityCheck(code, "got code from java: ")
         if is_good_number(code):
+          sanityCheck(code, "trying to move player with code: ")
           # delta is the movment progress
           delta = int(code)
           # If the encoder rotates, move the player:
@@ -85,6 +86,7 @@ def move_player(delta):
   # Change the z coordinate:
   #! Notice: the z coordinate is the oppesite way, - is forward and + is backwards!! That's why i multiply by -1, to sync it
   player_path.worldOrientation = [0,0,current_z + SENSITIVITY_PARAMETER*delta*-1]
+  sanityCheck(str(delta), "moved player with delta: ", done = True)
 
 
 def sendDataToJava(new_position):
@@ -113,6 +115,12 @@ def calculateLocationRightWay():
     degLocation += 360
   return degLocation
 
+# This function is for sanity check, to make sure we are able to get data from encoder. Runs only on first try
+def sanityCheck(code, message, done = False):
+  if player_path['first']:
+    print("BLENDER: " + message + " " + code)
+    if done:
+      player_path['first'] = False
 
 if player_path['sockets_configed']:
     apply_movement()

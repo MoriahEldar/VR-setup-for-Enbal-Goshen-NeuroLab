@@ -57,6 +57,7 @@ public class BlenderConnection {
 
             // Start the process
             Process process = pb.start();
+            System.out.println("Blender maze started");
             
             // Wait for completion
             int exitCode = process.waitFor();
@@ -71,11 +72,10 @@ public class BlenderConnection {
 
         // Start Blender game with parameters
         String rewardList = calculateRewardList(rewards).toString();
+        System.out.println("rewardList: " + rewardList);
         new Thread(() -> this.loadMaze(maze, rewardList)).start();
         new Thread(() -> this.configureSocket()).start();
         //! check if arduino is in a thread (should be)
-        //! check not to stop the program
-
     }
 
     /**
@@ -97,11 +97,10 @@ public class BlenderConnection {
         }
 
         // configure out socket
-        //! TODO what to do if an error accurs here? still safe to do input? close connection?
         try {
             this.out = new DataOutputStream(this.socket.getOutputStream());
+            System.out.println("Output stream configured");
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
 
@@ -111,6 +110,7 @@ public class BlenderConnection {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))
             ) {
                 String line;
+                System.out.println("Started listening to Blender...");
                 while ((line = reader.readLine()) != null) {
                     try {
                         JSONObject receivedJson = new JSONObject(line.trim());

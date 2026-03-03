@@ -9,6 +9,8 @@ import java.util.Properties;
 
 import com.fazecast.jSerialComm.*;
 
+import consts.Defs;
+
 public class ArduinoConnection {
     SerialPort ardPort = null;
     ExperimentFlow exp = null;
@@ -32,12 +34,14 @@ public class ArduinoConnection {
 
     public void connectArduino() throws Exception {
         this.ardPort = SerialPort.getCommPort(properties.getProperty("port").toString());
-        ardPort.setBaudRate(9600);
+        ardPort.setBaudRate(Defs.ARDUINO_BAUD_RATE);
         ardPort.setComPortTimeouts(SerialPort.TIMEOUT_NONBLOCKING, 0, 0); // prevent blocking
     
         if (!ardPort.openPort()) {
             throw new Exception("Failed to open port");
         }
+
+        System.out.println("Arduino connected!");
     
         // Buffer to accumulate incoming data
         StringBuilder buffer = new StringBuilder();
@@ -87,27 +91,11 @@ public class ArduinoConnection {
         }
     }
 
-    public static void sendStartSignal() {
-        // TODO send start signal to arduino and start listening
-    }
-
-    public static void getTtl() {
-        // TODO make a file of all the ttls and times
-    }
-
-    public static void getEncoderData() {
-        // TODO write to the file
-    }
-
     public void sendGotToReward() throws IOException {
         if(ardPort != null) {
             OutputStream out = ardPort.getOutputStream();
             out.write(1); // Send a command to Arduino
             out.flush();
         }
-    }
-
-    public static void lick() {
-        // TODO write that licked
     }
 }
