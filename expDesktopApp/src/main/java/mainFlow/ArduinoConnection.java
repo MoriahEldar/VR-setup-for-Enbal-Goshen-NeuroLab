@@ -94,7 +94,7 @@ public class ArduinoConnection {
     public void sendGotToReward() throws IOException {
         if(ardPort != null) {
             OutputStream out = ardPort.getOutputStream();
-            out.write(1); // Send a command to Arduino
+            out.write(Defs.ARDUINO_SEND_REWARD_CODE); // Send a command to Arduino
             out.flush();
         }
     }

@@ -21,6 +21,7 @@ public class Defs {
     public static int ARDUINO_TTL_CODE = 0;
     public static int ARDUINO_START_LICK_CODE = 100;
     public static int ARDUINO_END_LICK_CODE = -100;
+    public static int ARDUINO_SEND_REWARD_CODE = 1;
 
     public static String BEHAVIORAL_FILE_NAME = "BaseBehavioralData.csv";
     public static String SYNC_FILE_NAME_ENDING = ".csv";

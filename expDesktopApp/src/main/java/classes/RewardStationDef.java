@@ -38,9 +38,10 @@ public class RewardStationDef implements Serializable {
         this.numLaps = numLaps;
         if (numRewardsInTheLap <= Defs.REWARD_ZONES_NUMBER) {
             this.zones = Defs.DefaultZones.get(numRewardsInTheLap);
+            System.out.println("zones: " + Arrays.toString(zones));
             this.placeInZone = new int[numInLap];
             this.probability = new double[numInLap];
-            for (int i = 0; i < numLaps; i++) {
+            for (int i = 0; i < numInLap; i++) {
                 placeInZone[i] = 0;
                 probability[i] = 1.0;
             }
@@ -54,7 +55,7 @@ public class RewardStationDef implements Serializable {
             this.zones = zones;
             this.placeInZone = new int[numInLap];
             this.probability = new double[numInLap];
-            for (int i = 0; i < numLaps; i++) {
+            for (int i = 0; i < numInLap; i++) {
                 placeInZone[i] = 0;
                 probability[i] = 1.0;
             }

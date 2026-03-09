@@ -37,7 +37,6 @@ public class ExperimentFlow {
             arduino.connectArduino();
             fileSystem.start();
         } catch (Exception e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
@@ -62,7 +61,6 @@ public class ExperimentFlow {
         try {
             arduino.sendGotToReward();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
