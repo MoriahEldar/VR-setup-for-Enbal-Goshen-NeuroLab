@@ -10,17 +10,6 @@ import numpy as np
 # This code is triggered ONLY if the system identifies a collision!!
 player_path = bge.logic.getCurrentScene().objects['player_path']
 
-# def collision(cont):
-#     # Loops through all connected sensors and returns if one is False
-#     # Basically makes it work like an And conroller.
-#     if player_path['backwards_movment'] <= 0: # collision only if the player is moving forward
-#         return False
-#     for sens in cont.sensors:
-#         if not sens.positive:
-#             return False
-#     return True
-
-
 def apply_start_logic():
     outer_wall = bge.logic.getCurrentScene().objects['outer_wall']
     if not player_path['running']:
