@@ -34,6 +34,7 @@ bool rewardIsOpened = false;
 bool ttlPulse = false;
 bool lickPulse = false;
 
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(PORT);
