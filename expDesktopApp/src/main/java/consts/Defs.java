@@ -39,8 +39,7 @@ public class Defs {
     public static String MAT_LICK_NAME = "licks";
 
     public static int THREAD_SLEEP_TIME = 50; // in ms, for the threads to sleep
-    public static int UPDATE_TIME = 50; // in ms, for the update of the files
-    public static int REWARD_SIGNAL_TIME = 10; // in ms
+    public static int UPDATE_TIME = 15; // in ms, for the update of the files
 
     public static String BHVFILE_TIME_NAME = "Time";
     public static int BHVFILE_TIME_NUMBER = 0;

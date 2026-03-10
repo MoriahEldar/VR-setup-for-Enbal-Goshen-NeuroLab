@@ -245,7 +245,7 @@ public class FileSystem {
         List<Boolean> laps = new ArrayList<>();
         double roundLength = expFlow.getRadius() * 2 * Math.PI; // Calculate the round length based on the radius
         long firstTime = 0;
-        double lastLickSec = -100;
+        int lastLickSec = -100;
         double lastLocation = -100;
         double lastSec = 0;
         int lastLap = 0;
@@ -325,8 +325,10 @@ public class FileSystem {
 
                 // graph data
                 double sec = (time - firstTime) / 1000.0;
+                int intSec = (int) sec;
                 double lineLocation = (location/360) * roundLength; // convert the location to a line location
                 if (!Double.isNaN(lineLocation) && !Double.isInfinite(lineLocation)) {
+                    // add fictive points if there is a gap in the location data (like when the mouse passes the start point)
                     if (addFictive != 0) {
                         double gap = (lastSec - sec)/3.0;
                         if(addFictive == 1) {
@@ -345,10 +347,10 @@ public class FileSystem {
                     }
                     
                     if (lick) {
-                        if ((sec - lastLickSec) > Defs.GRAPH_LICK_TIME_WINDOW) {
+                        if ((intSec - lastLickSec) >= Defs.GRAPH_LICK_TIME_WINDOW) {
                             licksXY.add(sec, lineLocation); // add the point to the list of lick points
                         }
-                        lastLickSec = sec;
+                        lastLickSec = intSec;
                     }
                 }
                 lastSec = sec;
