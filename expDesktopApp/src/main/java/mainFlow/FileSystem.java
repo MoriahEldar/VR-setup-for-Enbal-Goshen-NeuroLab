@@ -113,6 +113,7 @@ public class FileSystem {
         syncFiles();
         handleGraphAndMatFiles();
 
+        //! TODO check if needed
         if(expFlow.isTtlOn()) {
             makeBaseBehavioralFile(this.BEHAVIORAL_FILE_NO_TTL);
         }
@@ -539,7 +540,7 @@ public class FileSystem {
         }
     }
 
-    
+
     // ===============================================
     // technical help functions
     // ===============================================
