@@ -90,8 +90,7 @@ public class ExperimentFlow {
             fileSystem.updateBehavioralFile();
             arduino.disconnectArduino();
             blender.closeSocketConnection();
-            fileSystem.stopLogging();
-            fileSystem.makeOutputFiles();
+            fileSystem.finishLoggingAndMakeOutputFiles();
             //! finish robot
         } catch (Exception e) {
             e.printStackTrace();

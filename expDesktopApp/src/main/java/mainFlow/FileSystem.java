@@ -72,7 +72,7 @@ public class FileSystem {
     private void startLoggingBehavioral() {
         this.createFile(BEHAVIORAL_FILE);
         executor.submit(() -> {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(BEHAVIORAL_FILE))) { //! check if works (better) without append
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(BEHAVIORAL_FILE))) {
                 while (running || !bhvQueue.isEmpty()) {
                     String data;
                     while ((data = bhvQueue.poll()) != null) {
@@ -80,31 +80,35 @@ public class FileSystem {
                         writer.newLine();
                     }
                     writer.flush();
-                    Thread.sleep(Defs.THREAD_SLEEP_TIME); // Small sleep to reduce CPU usage
+                    Thread.sleep(Defs.FILE_THREAD_SLEEP_TIME); // Small sleep to reduce CPU usage
                 }
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
         });
     }
-    
-    // Method to stop both logging operations safely
-    public void stopLogging() {
-        running = false;
-        executor.shutdown();
-    }
 
     // Method to queue triggered updates
     public void updateFileOnTtl(String ttlNumber) {
-        long time = System.currentTimeMillis();
-        bhvQueue.offer(time + SEPARATOR + getBhvStringData() + SEPARATOR + ttlNumber); // add the ttl time
+       writeUpdatesToBhvFile(ttlNumber);
     }
 
     public void updateBehavioralFile() {
         this.updateFileOnTtl("0"); // add the ttl time
     }
+   
+    private void writeUpdatesToBhvFile(String ttlNumber) {
+        long time = System.currentTimeMillis();
+        bhvQueue.offer(logsFileRowFormat(time, expFlow.getMazeLocation(), expFlow.fileSystemIsOnReward(), expFlow.fileSystemLick(), expFlow.getLapNumber(), ttlNumber)); // add the ttl time
 
-    public void makeOutputFiles() {
+    }
+
+    public void finishLoggingAndMakeOutputFiles() {
+        stopLogging();
+        makeOutputFiles();
+    }
+
+    private void makeOutputFiles() {
         updateFileNames();
         syncFiles();
         handleGraphAndMatFiles();
@@ -127,61 +131,74 @@ public class FileSystem {
 
         System.out.println("syncing files");
         this.createFile(SYNC_FILE);
-        this.stopLogging();
-        // This method can be used to ensure all data is written to the files
-        // It will wait for the queues to be empty before proceeding
-        try {
-            while (!bhvQueue.isEmpty()) {
-                Thread.sleep(Defs.THREAD_SLEEP_TIME); // Wait until both queues are empty
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
 
         if (!expFlow.isTtlOn()) {
             // If there is no TTL, just copy the behavioral file to the sync file
             makeBaseBehavioralFile(SYNC_FILE);
+            System.out.println("made sync file, making graph");
+            return;
         }
 
-        // if there is a ttl, we need to group the data by ttl
-        // Map from non-zero label to the list of rows under that group
-        List<String[]> group = new ArrayList<>();
-        String lastTtlNumber = Integer.toString(expFlow.getTtlNumber());
+        // if there is a ttl, we need to group the data by ttls
 
         try (BufferedReader br = new BufferedReader(new FileReader(BEHAVIORAL_FILE))) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(SYNC_FILE))) {
                 writer.write(Defs.BEHAVIORAL_FILE_HEADER); // Header for the CSV file
                 writer.newLine();
+
                 String line;
-                String currentLabel = null;
-
+                // go until the first non-zero ttl, and just copy all the rows (including the first non-zero ttl row)
                 while ((line = br.readLine()) != null) {
-                    // split on seperetor
-                    String[] fields = line.split(SEPARATOR, -1);
-                    String last = fields[Defs.BHVFILE_TTL_NUMBER].trim();
+                    writer.write(line);
+                    writer.newLine();
 
-                    // if this row’s last column is non-zero, start a new group
-                    if (last.equals("0") && currentLabel != null && !currentLabel.equals(lastTtlNumber)) {
-                        group.add(fields); // add the row to the current group
+                    String[] fields = line.split(SEPARATOR, -1);
+                    String ttlNumber = fields[Defs.BHVFILE_TTL_NUMBER].trim();
+                    if (!ttlNumber.equals("0")) {
+                        break;
                     }
-                    if ((!last.isEmpty() && !last.equals("0")) || currentLabel == null || currentLabel.equals(lastTtlNumber)) {
-                        if (currentLabel == null || currentLabel.equals(lastTtlNumber)) {
-                            group = new ArrayList<>();
-                            group.add(fields); // initialize the group with the first row
+                }
+
+                boolean breaked = false;
+                List<String> group = new ArrayList<>();
+
+                // go over the rest of the file, and handle the groups 
+                while ((line = br.readLine()) != null) {
+                    breaked = false;
+
+                    // group together each continuous rows of ttl 0 and the first row of the next ttl (if there is one)
+                    do {
+                        group.add(line);
+                        
+                        String[] fields = line.split(SEPARATOR, -1);
+                        String ttlNumber = fields[Defs.BHVFILE_TTL_NUMBER].trim();
+                        if (!ttlNumber.equals("0")) {
+                            breaked = true;
+                            break;
                         }
-                        else {
-                            group.add(fields);
-                        }
+                    }
+                    while ((line = br.readLine()) != null);
+
+                    if(!breaked) { // if we reached the end of the file and there is still a group to write
+                        break;
+                    }
+                    
+                    if (group.size() > Defs.MAX_TTL_ZERO_LINES) { // if ttl stopped in the middle and it's not a group
+                        copyGroupToFile(group, writer);
+                        continue;
+                    }
+                    else {
                         String data = getGroupData(group);
                         writer.write(data);
                         writer.newLine();
-                        if (!last.isEmpty() && !last.equals("0")) {
-                            currentLabel = last;
-                        } else {
-                            currentLabel = null;
-                        }
-                        group.clear(); // clear the group for the next set of rows
                     }
+
+                    group.clear(); // clear the group for the next set of rows
+                    // continue to the line after the line that the ttl is non-zero
+                }
+
+                if (group.size() > 0) { // if there is a group at the end of the file that we didn't write yet
+                    copyGroupToFile(group, writer);
                 }
                 
                 writer.flush();
@@ -191,33 +208,76 @@ public class FileSystem {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        // try (BufferedReader br = new BufferedReader(new FileReader(BEHAVIORAL_FILE))) {
+        //     try (BufferedWriter writer = new BufferedWriter(new FileWriter(SYNC_FILE))) {
+        //         writer.write(Defs.BEHAVIORAL_FILE_HEADER); // Header for the CSV file
+        //         writer.newLine();
+        //         String line;
+        //         String currentLabel = null;
+
+        //         while ((line = br.readLine()) != null) {
+        //             // split on seperetor
+        //             String[] fields = line.split(SEPARATOR, -1);
+        //             String last = fields[Defs.BHVFILE_TTL_NUMBER].trim();
+
+        //             // if this row’s last column is non-zero, start a new group
+        //             if (last.equals("0") && currentLabel != null && !currentLabel.equals(lastTtlNumber)) {
+        //                 group.add(line); // add the row to the current group
+        //             }
+        //             if ((!last.isEmpty() && !last.equals("0")) || currentLabel == null || currentLabel.equals(lastTtlNumber)) {
+        //                 if (currentLabel == null || currentLabel.equals(lastTtlNumber)) {
+        //                     group = new ArrayList<>();
+        //                     group.add(line); // initialize the group with the first row
+        //                 }
+        //                 else {
+        //                     group.add(line);
+        //                 }
+        //                 String data = getGroupData(group);
+        //                 writer.write(data);
+        //                 writer.newLine();
+        //                 if (!last.isEmpty() && !last.equals("0")) {
+        //                     currentLabel = last;
+        //                 } else {
+        //                     currentLabel = null;
+        //                 }
+        //                 group.clear(); // clear the group for the next set of rows
+        //             }
+        //         }
+                
+        //         writer.flush();
+        //     } catch (IOException e) {
+        //         e.printStackTrace();
+        //     }
+        // } catch (IOException e) {
+        //     e.printStackTrace();
+        // }
         System.out.println("made sync file, making graph");
     }
 
-    private String getGroupData(List<String[]> list) {
+    private String getGroupData(List<String> list) {
         int size = list.size();
         if (size == 0) return ""; // No data to process
-        String[] last = list.get(size - 1); // get the last row
-        String time = last[Defs.BHVFILE_TIME_NUMBER]; // get the last time
-        String lap = last[Defs.BHVFILE_LAP_NUMBER]; // get the last lap
-        String TTL = last[Defs.BHVFILE_TTL_NUMBER]; // get the last ttl
+
         double totalLocation = 0;
+        double lastLocation = -100;
+        int locationChange = 0;
+
         boolean onReward = false;
         boolean lick = false;
-        int locationChange = 0;
-        double lastLocation = -100;
 
-        for (String[] row : list) {
-            if(row[Defs.BHVFILE_REWARD_NUMBER].equals("true")) { // check if on reward
+        for (String row : list) {
+            String[] splitRow = row.split(SEPARATOR, -1);
+            if(splitRow[Defs.BHVFILE_REWARD_NUMBER].equals("true")) { // check if on reward
                 onReward = true;
             }
-            if(row[Defs.BHVFILE_LICK_NUMBER].equals("true")) { // check if on reward
+            if(splitRow[Defs.BHVFILE_LICK_NUMBER].equals("true")) { // check if on reward
                 lick = true;
             }
 
             try {
-                double location = Double.parseDouble(row[Defs.BHVFILE_LOCATION_NUMBER]);
-                if (lastLocation != 100 && Math.abs(lastLocation - location) > 300) {
+                double location = Double.parseDouble(splitRow[Defs.BHVFILE_LOCATION_NUMBER]);
+                if (lastLocation != -100 && Math.abs(lastLocation - location) > 300) {
                     int rowIndex = list.indexOf(row);
                     locationChange = rowIndex;
                     totalLocation = 0;
@@ -225,14 +285,18 @@ public class FileSystem {
                 lastLocation = location;
                 totalLocation += location; // sum the locations
             } catch (NumberFormatException e) {
-                System.err.println("Invalid location data in row: " + Arrays.toString(row));
+                System.err.println("Invalid location data in row: " + Arrays.toString(splitRow));
                 continue; // skip rows with invalid location data
             }
         }
+        double averageLocation = totalLocation / (size - locationChange); // average the location
 
-        totalLocation /= size - locationChange; // average the location
+        String[] last = list.get(size - 1).split(SEPARATOR, -1); // get the last row
+        String time = last[Defs.BHVFILE_TIME_NUMBER]; // get the last time
+        String lap = last[Defs.BHVFILE_LAP_NUMBER]; // get the last lap
+        String TTL = last[Defs.BHVFILE_TTL_NUMBER]; // get the last ttl
 
-        return time + SEPARATOR + totalLocation + SEPARATOR + onReward + SEPARATOR + lick + SEPARATOR + lap + SEPARATOR + TTL; // return the data in the format: time, location, onReward, lick, lap, ttlNumber
+        return time + SEPARATOR + averageLocation + SEPARATOR + onReward + SEPARATOR + lick + SEPARATOR + lap + SEPARATOR + TTL; // return the data in the format: time, location, onReward, lick, lap, ttlNumber
     }
 
     public void handleGraphAndMatFiles() {
@@ -347,7 +411,7 @@ public class FileSystem {
                     }
                     
                     if (lick) {
-                        if ((intSec - lastLickSec) >= Defs.GRAPH_LICK_TIME_WINDOW) {
+                        if (intSec > lastLickSec) { // add licks in different seconds only
                             licksXY.add(sec, lineLocation); // add the point to the list of lick points
                         }
                         lastLickSec = intSec;
@@ -364,6 +428,7 @@ public class FileSystem {
         }
         makeGraph(dataXY, rewardsXY, licksXY);
     }
+
 
     // ===============================================
     // technical graph functions
@@ -474,6 +539,7 @@ public class FileSystem {
         }
     }
 
+    
     // ===============================================
     // technical help functions
     // ===============================================
@@ -499,6 +565,19 @@ public class FileSystem {
         }
     }
 
+    // Method to stop both logging operations safely and wait for the queues to be empty before shutting down the executor
+    private void stopLogging() {
+        running = false;
+        try {
+            while (!bhvQueue.isEmpty()) {
+                Thread.sleep(Defs.FILE_THREAD_SLEEP_TIME); // Wait until both queues are empty
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        executor.shutdown();
+    }
+
     private void makeBaseBehavioralFile(String fileName) {
         try {
             // Add header to the beginning of the target file, then copy the rest of the source file
@@ -515,7 +594,18 @@ public class FileSystem {
         }
     }
 
-    private String getBhvStringData() {
-        return expFlow.getMazeLocation() + SEPARATOR + expFlow.fileSystemIsOnReward() + SEPARATOR + expFlow.fileSystemLick() + SEPARATOR + expFlow.getLapNumber();
-    } 
+    private void copyGroupToFile(List<String> group, BufferedWriter writer) throws IOException {
+        for (String row : group) {
+            writer.write(row);
+            writer.newLine();
+        }
+    }
+
+    private String logsFileRowFormat(long time, String location, boolean onReward, boolean lick, int lap, String ttl) {
+        return logsFileRowFormat(Long.toString(time), location, onReward ? "true" : "false", lick ? "true" : "false", Integer.toString(lap), ttl);
+    }
+
+    private String logsFileRowFormat(String time, String location, String onReward, String lick, String lap, String ttl) {
+        return time + SEPARATOR + location + SEPARATOR + onReward + SEPARATOR + lick + SEPARATOR + lap + SEPARATOR + ttl;
+    }
 }

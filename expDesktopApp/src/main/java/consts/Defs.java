@@ -31,16 +31,18 @@ public class Defs {
     public static String GRAPH_REWARDS_NAME = "Rewards";
     public static String GRAPH_LICK_NAME = "Licks";
     public static String GRAPH_DATA_NAME = "My Data";
-    public static int GRAPH_LICK_TIME_WINDOW = 1; // in seconds, for the lick to be counted as one lick
 
     public static String MAT_LOCATIONS_NAME = "locations";
     public static String MAT_REWARDS_NAME = "rewards";
     public static String MAT_LAPS_NAME = "laps";
     public static String MAT_LICK_NAME = "licks";
 
-    public static int THREAD_SLEEP_TIME = 50; // in ms, for the threads to sleep
+    public static int FILE_THREAD_SLEEP_TIME = 50; // in ms, for the threads to sleep
     public static int UPDATE_TIME = 15; // in ms, for the update of the files
 
+    public static int MAX_TTL_ZERO_LINES = 10; //max rows with ttl 0 that still count as the ttl is on (for case the ttl is closed in the middle of a session)
+    public static String SEPARATOR = ","; // separator for the files
+    public static String EXP_NAME_SEPARATOR = "_"; // separator for the files names
     public static String BHVFILE_TIME_NAME = "Time";
     public static int BHVFILE_TIME_NUMBER = 0;
     public static String BHVFILE_LOCATION_NAME = "Location";
@@ -53,8 +55,6 @@ public class Defs {
     public static int BHVFILE_LAP_NUMBER = 4;
     public static String BHVFILE_TTL_NAME = "TTL Number";
     public static int BHVFILE_TTL_NUMBER = 5;
-    public static String SEPARATOR = ","; // separator for the files
-    public static String EXP_NAME_SEPARATOR = "_"; // separator for the files
     public static String BEHAVIORAL_FILE_HEADER = BHVFILE_TIME_NAME + SEPARATOR +
             BHVFILE_LOCATION_NAME + SEPARATOR +
             BHVFILE_REWARD_NAME + SEPARATOR +
