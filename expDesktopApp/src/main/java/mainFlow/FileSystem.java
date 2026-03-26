@@ -147,7 +147,7 @@ public class FileSystem {
                 writer.write(Defs.BEHAVIORAL_FILE_HEADER); // Header for the CSV file
                 writer.newLine();
 
-                String line;
+                String line = null;
                 // go until the first non-zero ttl, and just copy all the rows (including the first non-zero ttl row)
                 while ((line = br.readLine()) != null) {
                     writer.write(line);
@@ -164,7 +164,7 @@ public class FileSystem {
                 List<String> group = new ArrayList<>();
 
                 // go over the rest of the file, and handle the groups 
-                while ((line = br.readLine()) != null) {
+                while (line != null && (line = br.readLine()) != null) {
                     breaked = false;
 
                     // group together each continuous rows of ttl 0 and the first row of the next ttl (if there is one)
@@ -178,7 +178,7 @@ public class FileSystem {
                             break;
                         }
                     }
-                    while ((line = br.readLine()) != null);
+                    while (line != null && (line = br.readLine()) != null);
 
                     if(!breaked) { // if we reached the end of the file and there is still a group to write
                         break;
@@ -186,14 +186,12 @@ public class FileSystem {
                     
                     if (group.size() > Defs.MAX_TTL_ZERO_LINES) { // if ttl stopped in the middle and it's not a group
                         copyGroupToFile(group, writer);
-                        continue;
                     }
                     else {
                         String data = getGroupData(group);
                         writer.write(data);
                         writer.newLine();
                     }
-
                     group.clear(); // clear the group for the next set of rows
                     // continue to the line after the line that the ttl is non-zero
                 }

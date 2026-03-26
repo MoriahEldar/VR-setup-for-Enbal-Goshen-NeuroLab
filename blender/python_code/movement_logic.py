@@ -36,6 +36,10 @@ def apply_movement():
   # the player in the game according to it:
   
   sock = player_path['java_socket_obj']
+  # check soc is not -1? Traceback (most recent call last):
+  # File "movement_logic", line 126, in <module>
+  # File "movement_logic", line 39, in apply_movement
+  # ValueError: file descriptor cannot be a negative integer (-1)
   ready_to_read, _, _ = select.select([sock], [], [], 0)
   java_code_read = None
 

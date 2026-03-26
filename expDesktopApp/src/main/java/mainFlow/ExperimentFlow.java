@@ -91,6 +91,7 @@ public class ExperimentFlow {
             arduino.disconnectArduino();
             blender.closeSocketConnection();
             fileSystem.finishLoggingAndMakeOutputFiles();
+            System.out.println("finished everything, safe to close the program");
             //! finish robot
         } catch (Exception e) {
             e.printStackTrace();
